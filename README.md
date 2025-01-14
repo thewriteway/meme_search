@@ -227,6 +227,26 @@ When doing this ensure you have an available Postgres instance running locally o
 
 With the pro version you can index your memes by creating your own descriptions, or by generating descriptions automatically, as illustrated below.
 
+<img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-generate-example.gif" height="225">
+
+To start indexing your own memes, first adjust the [pro version compose file](https://github.com/neonwatty/meme-search/blob/main/docker-compose-pro.yml) by adding `volume` mount to the `meme_search_pro` service to properly connect your local meme subdirectory to the app.
+
+For example, if suppose (one of your) meme directories was called `new_memes` and was located at the following path on your machine: `/local/path/to/my/memes/new_memes`.
+
+To properly mount this subdirectory to the pro meme search service adjust the `volumes` portion of its configuration to the following:
+
+```yaml
+    volumes: # <-- any additional meme directory must be mounted here
+      - ./meme_search_pro/memes/:/rails/public/memes # <-- example meme directories
+      - /local/path/to/my/memes/new_memes:/rails/public/memes/new_memes  # <--- your memes subdirectory is mounted here!
+```
+
+Now restart the app, and register the `new_memes` via the UX by traversing to the `settings -> paths -> create new` as illustrated below.
+
+<img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-add-new-memes.webp" height="225">
+
+Once registered in the app, your memes are ready for indexing / tagging / etc.,!
+
 ### Pipeline overview - pro version
 
 The pro version pipeline contains many of the [components of the standard version](#pipeline-overview---standard-version), with some variationa and several additional components.
