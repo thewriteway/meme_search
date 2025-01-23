@@ -223,6 +223,13 @@ To start the app alone pull the repo and cd into the `meme_search/meme_search_pr
 
 When doing this ensure you have an available Postgres instance running locally on port `5432`.
 
+**Note Linux users:** you may need to add the following `extra_hosts` to your `meme_search_pro` service for inter-container communication
+
+```sh
+extra_hosts:
+    - "host.docker.internal:host-gateway"
+```
+
 ### Index your memes - pro version
 
 With the pro version you can index your memes by creating your own descriptions, or by generating descriptions automatically, as illustrated below.
