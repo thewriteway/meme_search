@@ -27,7 +27,7 @@ def image_to_text(image_path: str) -> str:
 
         # process image
         enc_image = model.encode_image(image)
-        logging.info("DONE: image encoding complete --> %s", image_path)
+        logging.info("DONE: image encoding complete, starting generation --> %s", image_path)
         description = model.answer_question(enc_image, prompt, tokenizer)
         logging.info("DONE: image to text generation complete --> %s", image_path)
 

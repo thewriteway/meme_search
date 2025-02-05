@@ -4,12 +4,12 @@ services:
   meme_search_pro:
     image: ghcr.io/neonwatty/meme_search_pro:latest
     container_name: meme_search_pro
-    environment: # <-- you can adjust these PORT values in your .env file
-      - DATABASE_URL: postgres://postgres:postgres@meme-search-db:${DB_PORT:-5432}/meme_search
-      - APP_HOST: "${APP_HOST:-localhost}"
-      - APP_PORT: ${APP_PORT:-3000}"
-      - GEN_PORT: ${GEN_PORT:-8000}"
-      - APP_PORT: ${APP_PORT:-3000}
+    environment: # <-- you can adjust these values in your .env file
+      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:${DB_PORT:-5432}/meme_search"
+      APP_HOST: "${APP_HOST:-localhost}"
+      APP_PORT: "${APP_PORT:-3000}"
+      GEN_PORT: "${GEN_PORT:-8000}"
+      DOCKER_HOST_INTERNAL: "${DOCKER_HOST_INTERNAL:-host.docker.internal}"
     ports:
       - "${APP_PORT:-3000}:3000" # <--  adjust to desired local port for this service in your .env file
     depends_on:
@@ -21,8 +21,13 @@ services:
   image_to_text_generator:
     image: ghcr.io/neonwatty/image_to_text_generator:latest
     container_name: image_to_text_generator
+    environment: # <-- you can adjust these values in your .env file
+      APP_HOST: "${APP_HOST:-localhost}"
+      APP_PORT: "${APP_PORT:-3000}"
+      GEN_PORT: "${GEN_PORT:-8000}"
+      DOCKER_HOST_INTERNAL: "${DOCKER_HOST_INTERNAL:-host.docker.internal}"
     ports:
-      - "${GEN_PORT:-8000}:8000" # <--  adjust to desired local port for this service in your .env file
+      - "${GEN_PORT:-8000}:8000" # <--  adjust to desired local port for this service in your .env file)"
     volumes: # <-- any additional meme directory must be mounted here
       - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directories
       - ./meme_search_pro/db_data/image_to_text_generator:/app/db
