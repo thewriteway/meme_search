@@ -25,8 +25,10 @@ A table of contents for the remainder of this README:
 
   - [Features](#features)
   - [Installation instructions](#installation-instructions---pro-version)
+  - [Custom hosts and ports](#custom-hosts-and-ports)
   - [Index your memes](#index-your-memes---pro-version)
   - [Pipeline overview](#pipeline-overview---pro-version)
+  - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests---pro-version)
 
 - [Changelog](#changelog)
@@ -128,7 +130,7 @@ This meme search pipeline is written in pure Python and is built using the follo
 - [sqlite](https://sqlite.org/): the greatest database of all time, used for data indexing
 - [streamlit](https://github.com/streamlit/streamlit): for serving up the app
 
-The notebook linked to here <a href="https://colab.research.google.com/github/jermwatt/meme_search/blob/main/meme_search_walkthrough.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> walks through the whole process!  You can also watch an overview of this walkthrough by clicking here  <a href="https://www.youtube.com/watch?v=P1k1EGvoJIg" target="_parent"><img src="https://badges.aleen42.com/src/youtube.svg" alt="Youtube"/></a>.
+The notebook linked to here <a href="https://colab.research.google.com/github/jermwatt/meme_search/blob/main/meme_search_walkthrough.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> walks through the whole process! You can also watch an overview of this walkthrough by clicking here <a href="https://www.youtube.com/watch?v=P1k1EGvoJIg" target="_parent"><img src="https://badges.aleen42.com/src/youtube.svg" alt="Youtube"/></a>.
 
 ### Running tests - standard version
 
@@ -230,6 +232,22 @@ extra_hosts:
     - "host.docker.internal:host-gateway"
 ```
 
+### Custom hosts and ports
+
+Easily customize the app's hosts and ports to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default ports.
+
+To customize the hosts and ports create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
+
+```sh
+APP_HOST= # the host for the app - defaults to localhost
+APP_PORT= # the port for the app - defaults to 3000
+GEN_PORT= # the port for the image to text generator - defaults to 8000
+DB_PORT= # the port for the database - defaults to 5432
+DOCKER_HOST_INTERNAL= # the internal host for docker - defaults to host.docker.internal
+```
+
+These values are automatically detected and loaded into each service via the `docker-compose-pro.yml` file.
+
 ### Index your memes - pro version
 
 With the pro version you can index your memes by creating your own descriptions, or by generating descriptions automatically, as illustrated below.
@@ -243,9 +261,9 @@ For example, if suppose (one of your) meme directories was called `new_memes` an
 To properly mount this subdirectory to the pro meme search service adjust the `volumes` portion of its configuration to the following:
 
 ```yaml
-    volumes: # <-- any additional meme directory must be mounted here
-      - ./meme_search_pro/memes/:/rails/public/memes # <-- example meme directories
-      - /local/path/to/my/memes/new_memes:/rails/public/memes/new_memes  # <--- your memes subdirectory is mounted here!
+volumes: # <-- any additional meme directory must be mounted here
+  - ./meme_search_pro/memes/:/rails/public/memes # <-- example meme directories
+  - /local/path/to/my/memes/new_memes:/rails/public/memes/new_memes # <--- your memes subdirectory is mounted here!
 ```
 
 Now restart the app, and register the `new_memes` via the UX by traversing to the `settings -> paths -> create new` as illustrated below.
@@ -263,15 +281,39 @@ The pro version pipeline contains many of the [components of the standard versio
 - a single Postgres database is used in place of the duo used with the standard version
 - the auto generator is isolated in its own image / container to allow for better maintainance, queueing, and cancellation
 
+### Building the app locally with Docker
+
+To build the app - including all services defined in the `docker-compose-pro.yml` file - locally run the local compose file at your terminal as
+
+```sh
+docker compose -f docker-compose-pro-local-build.yml up --build
+```
+
+This will build the docker images for the app, database, and auto description generator, and start the app at `http://localhost:3000`.
+
 ### Running tests - pro version
 
-To run tests locally pull the repo and cd into the `meme_search/meme_search_pro/meme_search_app` directory. Once there tests can be executed
+To run tests locally pull the repo and cd into the `meme_search/meme_search_pro/meme_search_app` directory. Install the requird gems as
+
+```sh
+bundle install
+```
+
+Tests can then be run as
 
 ```sh
 rails test test/system
 ```
 
 When doing this ensure you have an available Postgres instance running locally on port `5432`.
+
+Run linting tests on the `/app` subdirectory as
+
+```sh
+rubocop app
+```
+
+to ensure the code is clean and well formatted.
 
 ## Changelog
 

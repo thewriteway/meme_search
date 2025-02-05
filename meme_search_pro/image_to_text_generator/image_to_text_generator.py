@@ -18,20 +18,19 @@ def image_to_text(image_path: str) -> str:
         image_path = "/app" + image_path
 
         # create prompt
-        logging.info(f"STARTING: image_to_text extraction of image --> {image_path}")
+        logging.info(f"STARTING: image_to_text extraction of image --> %s", image_path)
         prompt = "Describe this image, including any text you see on the image."
 
         # load in image
         image = Image.open(image_path)
-        logging.info("DONE: image loaded --> {image_path}")
+        logging.info("DONE: image loaded, starting generation --> %s", image_path)
 
         # process image
         enc_image = model.encode_image(image)
-        logging.info("DONE: image encoding complete --> {image_path}")
+        logging.info("DONE: image encoding complete, starting generation --> %s", image_path)
         description = model.answer_question(enc_image, prompt, tokenizer)
-        logging.info(
-            f"DONE: image_to_text extraction of image complete --> {image_path}"
-        )
+        logging.info("DONE: image to text generation complete --> %s", image_path)
+
 
         # cleanup description
         description = description.strip().split(" ")[3:]
@@ -39,6 +38,6 @@ def image_to_text(image_path: str) -> str:
         description = " ".join(description)
         return description
     except Exception as e:
-        error_msg = f"FAILURE: image_to_text extraction of image --> {image_path} failed with exception --> {e}"
+        error_msg = f"ERROR: image_to_text extraction of image --> %s", image_path + f" failed with error: {e}"
         logging.error(error_msg)
         raise e

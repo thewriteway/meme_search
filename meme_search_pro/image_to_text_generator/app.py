@@ -13,7 +13,9 @@ app = FastAPI()
 lock = threading.Lock()
 
 # constants
-APP_URL = "http://" + os.environ.get("DOCKER_HOST_INTERNAL", "host.docker.internal") + ":" + os.environ.get("APP_PORT", "3000") + "/image_cores/"
+DOCKER_HOST_INTERNAL = os.environ.get("DOCKER_HOST_INTERNAL", "host.docker.internal")
+APP_PORT = os.environ.get("APP_PORT", "3000")
+APP_URL = f"http://{DOCKER_HOST_INTERNAL}:{APP_PORT}/image_cores/"
 JOB_DB = "/app/db/job_queue.db"
 
 # initialize logging
@@ -21,6 +23,9 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+# log APP_URL and JOB_DB
+logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
+logging.info(f"the local job db for the image to text service is defined as: {JOB_DB}")
 
 # initialize local db / table
 def init_db():
@@ -156,7 +161,7 @@ def process_jobs():
                 # send results to main app
                 description_sender(output_job_details)
 
-                # send status update (image out of queue and in process)
+                # send status update (image processing complete)
                 status_job_details["status"] = 3
                 status_sender(status_job_details)
 
@@ -209,7 +214,14 @@ def remove_job(image_core_id: int):
         logging.warning(
             "Attempted to remove a job that does not exist: %s", image_core_id
         )
-        return {"status": "Job not found"}, 404
+
+        # send signal to update status
+        status_job_details = {"image_core_id": image_core_id, "status": 3}
+
+        # send status update (reset status)
+        status_sender(status_job_details)
+        
+        return {"status": "Job removed from queue"}
 
     # Remove the job from the database
     cursor.execute("DELETE FROM jobs WHERE image_core_id = ?", (image_core_id,))
