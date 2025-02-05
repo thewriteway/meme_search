@@ -296,7 +296,7 @@ When doing this ensure you have an available Postgres instance running locally o
 To build the app - including all services defined in the `docker-compose-pro.yml` file - locally run the local compose file at your terminal as
 
 ```sh
-docker compose -f docker-compose-pro-local.yml up --build
+docker compose -f docker-compose-pro-local-build.yml up --build
 ```
 
 This will build the docker images for the app, database, and auto description generator, and start the app at `http://localhost:3000`.
