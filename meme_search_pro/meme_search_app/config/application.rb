@@ -8,6 +8,11 @@ Bundler.require(*Rails.groups)
 
 module MemeSearch
   class Application < Rails::Application
+    # load default env variables
+    ENV["APP_HOST"] ||="localhost"
+    ENV["APP_PORT"] ||= "3000"
+    ENV["GEN_PORT"] ||= "8000"
+
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 7.2
 

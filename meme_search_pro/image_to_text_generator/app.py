@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import os
 import sqlite3
 import time
 import threading
@@ -12,7 +13,7 @@ app = FastAPI()
 lock = threading.Lock()
 
 # constants
-APP_URL = "http://host.docker.internal:3000/image_cores/"
+APP_URL = "http://" + os.environ.get("DOCKER_HOST_INTERNAL", "host.docker.internal") + ":" + os.environ.get("APP_PORT", "3000") + "/image_cores/"
 JOB_DB = "/app/db/job_queue.db"
 
 # initialize logging

@@ -51,7 +51,7 @@ class ImageCoresController < ApplicationController
 
       # send request
       begin # For local / native metal testing
-        uri = URI("http://localhost:8000/add_job")
+        uri = URI("http://#{ENV['APP_HOST']}:#{ENV['GEN_PORT']}/add_job")
         http = Net::HTTP.new(uri.host, uri.port)
 
         # Try to make a request to the first URI
@@ -62,7 +62,8 @@ class ImageCoresController < ApplicationController
         response = http.request(request)
       rescue => e # For compose runner (when app run in docker network)
         # If the connection fails, use the backup URI
-        puts "Failed to connect to localhost: #{e.message}"
+        puts "Failed to connect to local host at #{ENV['APP_HOST']}:#{ENV['GEN_PORT']}, failed with error: #{e}"
+        puts "Trying to connect to image_to_text_generator service directly"
 
         uri = URI("http://image_to_text_generator:8000/add_job")
         http = Net::HTTP.new(uri.host, uri.port)
@@ -105,7 +106,7 @@ class ImageCoresController < ApplicationController
 
       # send request
       begin # For local / native metal testing
-        uri = URI.parse("http://localhost:8000/remove_job/#{@image_core.id}")
+        uri = URI.parse("http://#{ENV['APP_HOST']}:#{ENV['GEN_PORT']}/remove_job/#{@image_core.id}")
         http = Net::HTTP.new(uri.host, uri.port)
 
         # Try to make a request to the first URI
