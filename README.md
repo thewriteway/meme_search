@@ -28,8 +28,8 @@ A table of contents for the remainder of this README:
   - [Custom hosts and ports](#custom-hosts-and-ports)
   - [Index your memes](#index-your-memes---pro-version)
   - [Pipeline overview](#pipeline-overview---pro-version)
+  - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests---pro-version)
-  - [Building the app locally](#building-the-app-locally)
 
 - [Changelog](#changelog)
 - [Feature requests and contributing](#feature-requests-and-contributing)
@@ -281,17 +281,7 @@ The pro version pipeline contains many of the [components of the standard versio
 - a single Postgres database is used in place of the duo used with the standard version
 - the auto generator is isolated in its own image / container to allow for better maintainance, queueing, and cancellation
 
-### Running tests - pro version
-
-To run tests locally pull the repo and cd into the `meme_search/meme_search_pro/meme_search_app` directory. Once there tests can be executed
-
-```sh
-rails test test/system
-```
-
-When doing this ensure you have an available Postgres instance running locally on port `5432`.
-
-### Building the app locally
+### Building the app locally with Docker
 
 To build the app - including all services defined in the `docker-compose-pro.yml` file - locally run the local compose file at your terminal as
 
@@ -300,6 +290,30 @@ docker compose -f docker-compose-pro-local-build.yml up --build
 ```
 
 This will build the docker images for the app, database, and auto description generator, and start the app at `http://localhost:3000`.
+
+### Running tests - pro version
+
+To run tests locally pull the repo and cd into the `meme_search/meme_search_pro/meme_search_app` directory. Install the requird gems as
+
+```sh
+bundle install
+```
+
+Tests can then be run as
+
+```sh
+rails test test/system
+```
+
+When doing this ensure you have an available Postgres instance running locally on port `5432`.
+
+Run linting tests on the `/app` subdirectory as
+
+```sh
+rubocop app
+```
+
+to ensure the code is clean and well formatted.
 
 ## Changelog
 
