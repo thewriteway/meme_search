@@ -1,4 +1,4 @@
-name: "pro app build"
+name: "pro image to text build"
 on:
   workflow_dispatch:
 
