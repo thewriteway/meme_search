@@ -1,6 +1,10 @@
 from PIL import Image
 import logging
-from model_init import model, tokenizer
+from model_init import TextToImageModel
+
+# initialize model
+current_model = TextToImageModel(model_id="vikhyatk/moondream2", revision="2024-08-26")
+current_model.download_model()
 
 # turn down transformers verbose logs
 # import transformers
@@ -26,9 +30,9 @@ def image_to_text(image_path: str) -> str:
         logging.info("DONE: image loaded, starting generation --> %s", image_path)
 
         # process image
-        enc_image = model.encode_image(image)
+        enc_image = current_model.model.encode_image(image)
         logging.info("DONE: image encoding complete, starting generation --> %s", image_path)
-        description = model.answer_question(enc_image, prompt, tokenizer)
+        description = current_model.model.answer_question(enc_image, prompt, current_model.tokenizer)
         logging.info("DONE: image to text generation complete --> %s", image_path)
 
 

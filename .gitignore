@@ -5,3 +5,6 @@
 **/*.pyc
 meme_search_pro/db_data
 **/.vscode
+**/__pycache__
+**.ruff_cache
+**models

@@ -7,7 +7,6 @@ import threading
 import logging
 import requests
 from image_to_text_generator import image_to_text
-from model_init import download_moondream
 
 # initialize FastAPI app
 app = FastAPI()
@@ -28,10 +27,6 @@ logging.basicConfig(
 logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
 logging.info(f"the local job db for the image to text service is defined as: {JOB_DB}")
 
-# download model
-logging.info("INFO: downloading model...")
-download_moondream()
-logging.info("INFO:... complete")
 
 # initialize local db / table
 def init_db():
