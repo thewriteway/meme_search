@@ -28,12 +28,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.10"
+          python-version: "3.12"
       - name: Install dependencies
+        working-directory: ./meme_search_pro/image_to_text_generator
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.test
           pip install -r requirements.txt
       - name: Run pytest
         run: |
-          PYTHONPATH=. python3.10 -m pytest tests/
+          PYTHONPATH=. python3.12 -m pytest tests/
