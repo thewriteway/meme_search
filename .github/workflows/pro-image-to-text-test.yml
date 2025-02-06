@@ -36,5 +36,6 @@ jobs:
           pip install -r requirements.test
           pip install -r requirements.txt
       - name: Run pytest
+        working-directory: ./meme_search_pro/image_to_text_generator
         run: |
           PYTHONPATH=. python3.12 -m pytest tests/
