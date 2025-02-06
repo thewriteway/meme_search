@@ -25,9 +25,10 @@ A table of contents for the remainder of this README:
 
   - [Features](#features)
   - [Installation instructions](#installation-instructions---pro-version)
-  - [Custom hosts and ports](#custom-hosts-and-ports)
+  - [Time to first generation / downloading models](#time-to-first-generation--downloading-models)
   - [Index your memes](#index-your-memes---pro-version)
   - [Pipeline overview](#pipeline-overview---pro-version)
+  - [Custom hosts and ports](#custom-hosts-and-ports)
   - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests---pro-version)
 
@@ -232,21 +233,11 @@ extra_hosts:
     - "host.docker.internal:host-gateway"
 ```
 
-### Custom hosts and ports
+### Time to first generation / downloading models
 
-Easily customize the app's hosts and ports to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default ports.
+The first auto generation of description of a meme takes longer than average, as image-to-text model weights are downloaded and cached. Subsequent generations are faster.
 
-To customize the hosts and ports create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
-
-```sh
-APP_HOST= # the host for the app - defaults to localhost
-APP_PORT= # the port for the app - defaults to 3000
-GEN_PORT= # the port for the image to text generator - defaults to 8000
-DB_PORT= # the port for the database - defaults to 5432
-DOCKER_HOST_INTERNAL= # the internal host for docker - defaults to host.docker.internal
-```
-
-These values are automatically detected and loaded into each service via the `docker-compose-pro.yml` file.
+You can download additional models in the settings tab of the app.
 
 ### Index your memes - pro version
 
@@ -272,6 +263,10 @@ Now restart the app, and register the `new_memes` via the UX by traversing to th
 
 Once registered in the app, your memes are ready for indexing / tagging / etc.,!
 
+### Model downloads
+
+The image-to-text models used to auto generate descriptions for your memes are all open source, and vary in size.
+
 ### Pipeline overview - pro version
 
 The pro version pipeline contains many of the [components of the standard version](#pipeline-overview---standard-version), with some variationa and several additional components.
@@ -280,6 +275,22 @@ The pro version pipeline contains many of the [components of the standard versio
 - a ruby version [of the same embedding model] is used in place of the Pythonic version
 - a single Postgres database is used in place of the duo used with the standard version
 - the auto generator is isolated in its own image / container to allow for better maintainance, queueing, and cancellation
+
+### Custom hosts and ports
+
+Easily customize the app's hosts and ports to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default ports.
+
+To customize the hosts and ports create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
+
+```sh
+APP_HOST= # the host for the app - defaults to localhost
+APP_PORT= # the port for the app - defaults to 3000
+GEN_PORT= # the port for the image to text generator - defaults to 8000
+DB_PORT= # the port for the database - defaults to 5432
+DOCKER_HOST_INTERNAL= # the internal host for docker - defaults to host.docker.internal
+```
+
+These values are automatically detected and loaded into each service via the `docker-compose-pro.yml` file.
 
 ### Building the app locally with Docker
 

@@ -8,7 +8,7 @@ import logging
 import requests
 from image_to_text_generator import image_to_text
 
-
+# initialize FastAPI app
 app = FastAPI()
 lock = threading.Lock()
 
@@ -26,6 +26,7 @@ logging.basicConfig(
 # log APP_URL and JOB_DB
 logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
 logging.info(f"the local job db for the image to text service is defined as: {JOB_DB}")
+
 
 # initialize local db / table
 def init_db():
@@ -220,7 +221,7 @@ def remove_job(image_core_id: int):
 
         # send status update (reset status)
         status_sender(status_job_details)
-        
+
         return {"status": "Job removed from queue"}
 
     # Remove the job from the database

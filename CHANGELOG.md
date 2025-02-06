@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-1-30
+
+Quality of life updates to the Pro version of Meme Search, including:
+
+- bugfixes in the image-to-text service that makes cancelling failed jobs more reliable
+- new custom ports / hosts options to more easily run the pro app with tools like Unraid and Portainer, or if you need to run its services on different ports / hosts
+- new local build compose file for building and testing locally `docker-compose-pro-local-build.yml`
+
+Administrative updates including:
+
+- new github actions for building and pushing the pro app and image-to-text module images to the github container registry
+- weights have been removed from the image-to-text image for a smaller image size
+
 ## 2024-11-08
 
 New Pro Version 1.0 Release!
