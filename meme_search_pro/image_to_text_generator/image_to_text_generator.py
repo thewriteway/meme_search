@@ -18,7 +18,7 @@ def image_to_text(image_path: str) -> str:
         image_path = "/app" + image_path
 
         # create prompt
-        logging.info(f"STARTING: image_to_text extraction of image --> %s", image_path)
+        logging.info("STARTING: image_to_text extraction of image --> %s", image_path)
         prompt = "Describe this image, including any text you see on the image."
 
         # load in image
@@ -38,6 +38,6 @@ def image_to_text(image_path: str) -> str:
         description = " ".join(description)
         return description
     except Exception as e:
-        error_msg = f"ERROR: image_to_text extraction of image --> %s", image_path + f" failed with error: {e}"
+        error_msg = "ERROR: image_to_text extraction of image --> %s", image_path + f" failed with error: {e}"
         logging.error(error_msg)
         raise e

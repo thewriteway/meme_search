@@ -1,0 +1,4 @@
+# Install base requirements first
+-r requirements.txt
+ruff
+pytest
