@@ -47,4 +47,4 @@ jobs:
           context: ./meme_search_pro/meme_search_app
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: meme_search_pro:latest
+          tags: ghcr.io/neonwatty/meme_search_pro:latest
