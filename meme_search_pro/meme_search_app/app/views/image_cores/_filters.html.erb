@@ -45,5 +45,12 @@
       <% end %>
     </dialog>
     <button id="open_filters_button" data-action="slideover#open" class="bg-blue-600 hover hover:bg-blue-400 border border-black rounded-2xl ml-5 px-3 py-2 cursor-pointer">Open filters</button>
+
+    <button 
+      data-action="click->view-switcher#toggleView"
+      class="px-4 py-2 text-white bg-purple-500 ml-5 transition-colors rounded-2xl border-black cursor-pointer"
+      data-view-switcher-target="toggleButton">
+      Switch to Grid View
+    </button>
   </div>
 </div>
