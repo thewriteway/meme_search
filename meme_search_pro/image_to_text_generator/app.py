@@ -221,7 +221,7 @@ def remove_job(image_core_id: int):
 
         # send status update (reset status)
         status_sender(status_job_details)
-        
+
         return {"status": "Job removed from queue"}
 
     # Remove the job from the database
