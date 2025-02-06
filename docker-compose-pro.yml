@@ -31,6 +31,7 @@ services:
     volumes: # <-- any additional meme directory must be mounted here
       - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directories
       - ./meme_search_pro/db_data/image_to_text_generator:/app/db
+      - ./meme_search_pro/models:/root/.cache/huggingface
     deploy:
       resources:
         limits: # <-- roughly tested min memory for cpu usage
