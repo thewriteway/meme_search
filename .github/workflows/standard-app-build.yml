@@ -1,10 +1,10 @@
-name: "DockerBuild"
+name: "Standard App Build"
 
 on:
-  workflow_dispatch:
-  # push:
-  #   tags:
-  #     - "v*"
+  # workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 jobs:
   Build_And_Push:

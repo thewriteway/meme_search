@@ -1,7 +1,6 @@
 name: rails tests for meme search pro app
 
 on:
-  workflow_dispatch:
   pull_request:
     branches: ["main"]
     paths:
