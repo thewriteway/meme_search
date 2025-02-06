@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_pro_app:
+  build_pro_image_to_text:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
