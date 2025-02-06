@@ -28,12 +28,12 @@ class TagNamesTest < ApplicationSystemTestCase
     # enter name for new tag and create
     fill_in "new_tag_name_text_area", with: "test_tag"
     click_on "Save"
-    sleep(0.25)
+    sleep(0.5)
     assert_selector "div", text: "Tag successfully created!"
 
     # return to tags list
     click_on "Back to tags"
-    sleep(0.2)
+    sleep(0.5)
     divs_with_tag_name_id = all("div[id^='tag_name_']")
     second_tag_count = divs_with_tag_name_id.count
 
@@ -42,15 +42,15 @@ class TagNamesTest < ApplicationSystemTestCase
 
     # edit tag
     click_on "Adjust / delete", match: :first
-    sleep(0.2)
+    sleep(0.5)
     click_on "Edit this tag"
-    sleep(0.2)
+    sleep(0.5)
     fill_in "new_tag_name_text_area", with: "another_test_tag"
     click_on "Save"
-    sleep(0.2)
+    sleep(0.5)
     assert_selector "div", text: "Tag successfully updated!"
     click_on "Back to tags"
-    sleep(0.2)
+    sleep(0.5)
 
     # count number of tags
     divs_with_tag_name_id = all("div[id^='tag_name_']")
@@ -59,11 +59,11 @@ class TagNamesTest < ApplicationSystemTestCase
 
     # delete tag
     click_on "Adjust / delete", match: :first
-    sleep(0.2)
+    sleep(0.5)
     accept_alert do
       click_on "Delete this tag"
     end
-    sleep(0.2)
+    sleep(0.5)
     assert_selector "div", text: "Tag successfully deleted!"
 
     # count number of tags - assert the same as start
