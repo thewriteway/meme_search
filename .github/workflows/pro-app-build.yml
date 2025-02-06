@@ -32,15 +32,6 @@ jobs:
           username: neonwatty
           password: ${{ secrets.TOKEN_GITHUB }}
 
-      - name: Print current working directory
-        run: pwd # Prints the current working directory
-
-      - name: Print root directory contents
-        run: ls -l .
-
-      - name: Print app directory contents
-        run: ls -l ./meme_search
-
       - name: Build and Upload for AMD64 and ARM64
         uses: docker/build-push-action@v6
         with:
