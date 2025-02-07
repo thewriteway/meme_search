@@ -12,7 +12,7 @@ Quality of life updates to the Pro version of Meme Search, including:
 - new `grid view` in both home and search pages for a broader view of your memes (see animation below)
 
 <p align="center">
-<img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-grid-view-medium.webp" height="325">
+<img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-grid-view-medium.webp" height="225">
 </p>
 
 Administrative updates including:
