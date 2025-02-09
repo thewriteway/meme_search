@@ -7,6 +7,7 @@ import logging
 import requests
 from data_model import JobModel
 from image_to_text_generator import image_to_text
+from . import default_model
 
 # initialize FastAPI app
 app = FastAPI()
@@ -19,9 +20,7 @@ APP_URL = f"http://{DOCKER_HOST_INTERNAL}:{APP_PORT}/image_cores/"
 JOB_DB = "/app/db/job_queue.db"
 
 # initialize logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # log APP_URL and JOB_DB
 logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
@@ -32,6 +31,8 @@ logging.info(f"the local job db for the image to text service is defined as: {JO
 def init_db():
     conn = sqlite3.connect(JOB_DB)
     cursor = conn.cursor()
+
+    # create table for job queue
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +40,7 @@ def init_db():
             image_path TEXT NOT NULL
         )
     """)
+
     conn.commit()
     conn.close()
 
@@ -53,10 +55,10 @@ def check_queue():
 
 
 # initialize model - download weights
-def init_model():
+def init_model(model_name: str = default_model) -> None:
     with lock:
         image_path = "do_not_remove.jpg"
-        description = image_to_text(image_path)
+        description = image_to_text(image_path, model_name)
         logging.info(
             "Finished model download and initial test - image description: %s",
             description,
@@ -66,17 +68,11 @@ def init_model():
 
 def description_sender(output_job_details: dict) -> dict:
     try:
-        response = requests.post(
-            APP_URL + "description_receiver", json={"data": output_job_details}
-        )
+        response = requests.post(APP_URL + "description_receiver", json={"data": output_job_details})
         if response.status_code == 200:
-            logging.info(
-                f"SUCCESS: description_sender successfully delivered {output_job_details}"
-            )
+            logging.info(f"SUCCESS: description_sender successfully delivered {output_job_details}")
         else:
-            logging.info(
-                f"FAILURE: description_sender failed to deliver {output_job_details} with response code {response.status_code}"
-            )
+            logging.info(f"FAILURE: description_sender failed to deliver {output_job_details} with response code {response.status_code}")
     except Exception as e:
         failure_message = f"FAILURE: description_sender failed with exception {e}"
         logging.error(failure_message)
@@ -84,17 +80,11 @@ def description_sender(output_job_details: dict) -> dict:
 
 def status_sender(status_job_details: dict) -> None:
     try:
-        response = requests.post(
-            APP_URL + "status_receiver", json={"data": status_job_details}
-        )
+        response = requests.post(APP_URL + "status_receiver", json={"data": status_job_details})
         if response.status_code >= 200 and response.status_code < 300:
-            logging.info(
-                f"SUCCESS: status_sender successfully delivered {status_job_details}"
-            )
+            logging.info(f"SUCCESS: status_sender successfully delivered {status_job_details}")
         else:
-            logging.info(
-                f"FAILURE: status_sender failed to deliver {status_job_details} with response code {response.status_code}"
-            )
+            logging.info(f"FAILURE: status_sender failed to deliver {status_job_details} with response code {response.status_code}")
     except Exception as e:
         failure_message = f"FAILURE: status_sender failed with exception {e}"
         logging.error(failure_message)
@@ -114,7 +104,7 @@ def proccess_job(input_job_details: dict) -> dict:
     # description = "this is a test"
 
     # process image
-    description = image_to_text(input_job_details["image_path"])
+    description = image_to_text(input_job_details["image_path"], input_job_details["model"])
 
     # create return payload
     output_job_details = {
@@ -206,9 +196,7 @@ def remove_job(image_core_id: int):
 
     if job is None:
         conn.close()
-        logging.warning(
-            "Attempted to remove a job that does not exist: %s", image_core_id
-        )
+        logging.warning("Attempted to remove a job that does not exist: %s", image_core_id)
 
         # send signal to update status
         status_job_details = {"image_core_id": image_core_id, "status": 3}
