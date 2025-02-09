@@ -1,4 +1,5 @@
 # ignore mac os files
+**scratch.ipynb
 **.env
 **/.DS_Store
 **/*.db

@@ -1,11 +1,11 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
 import os
 import sqlite3
 import time
 import threading
 import logging
 import requests
+from data_model import JobModel
 from image_to_text_generator import image_to_text
 
 # initialize FastAPI app
@@ -62,12 +62,6 @@ def init_model():
             description,
         )
         logging.info("INFO: ready to process jobs!")
-
-
-# model for received jobs
-class Job(BaseModel):
-    image_core_id: int
-    image_path: str
 
 
 def description_sender(output_job_details: dict) -> dict:
@@ -179,7 +173,7 @@ def process_jobs():
 
 
 @app.post("/add_job")
-def add_job(job: Job):
+def add_job(job: JobModel):
     conn = sqlite3.connect(JOB_DB)
     cursor = conn.cursor()
 
