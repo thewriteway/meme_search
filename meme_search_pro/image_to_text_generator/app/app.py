@@ -5,9 +5,9 @@ import time
 import threading
 import logging
 import requests
-from data_model import JobModel
+from data_models import JobModel
 from image_to_text_generator import image_to_text
-from . import default_model
+from constants import default_model
 
 # initialize FastAPI app
 app = FastAPI()
@@ -37,7 +37,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             image_core_id INTEGER,
-            image_path TEXT NOT NULL
+            image_path TEXT NOT NULL,
+            model TEXT NOT NULL
         )
     """)
 
@@ -125,12 +126,13 @@ def process_jobs():
 
             if job:
                 # unpack job
-                job_id, image_core_id, image_path = job
+                job_id, image_core_id, image_path, model = job
 
                 # pack up data for processing / status update
                 input_job_details = {
                     "image_core_id": image_core_id,
                     "image_path": "/public/memes/" + image_path,
+                    "model": model,
                 }
                 status_job_details = {"image_core_id": image_core_id, "status": 2}
 
@@ -168,8 +170,8 @@ def add_job(job: JobModel):
     cursor = conn.cursor()
 
     cursor.execute(
-        "INSERT INTO jobs (image_core_id, image_path) VALUES (?, ?)",
-        (job.image_core_id, job.image_path),
+        "INSERT INTO jobs (image_core_id, image_path, model) VALUES (?, ?, ?)",
+        (job.image_core_id, job.image_path, job.model),
     )
     conn.commit()
     conn.close()

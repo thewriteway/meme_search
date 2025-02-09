@@ -1,9 +1,10 @@
 import os
 from PIL import Image
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from . import available_models
+from constants import available_models
 import logging
 
+# set logging level
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # define cache location
@@ -107,7 +108,7 @@ def model_selector(model_name: str) -> object:
         if model_name == "test":
             current_model = TestImageToText()
             return current_model
-        else:  # current default
+        else:  # current default - model = "moondream2"
             # initialize model
             current_model = MoondreamImageToText(model_id="vikhyatk/moondream2", revision="2024-08-26")
 
