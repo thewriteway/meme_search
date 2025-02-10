@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-import os
 import sqlite3
 import time
 import threading
@@ -8,16 +7,15 @@ import requests
 from data_models import JobModel
 from image_to_text_generator import image_to_text
 from constants import default_model
+from constants import APP_URL
+from constants import JOB_DB
+from job_queue import init_db
+from job_queue import check_queue
+
 
 # initialize FastAPI app
 app = FastAPI()
 lock = threading.Lock()
-
-# constants
-DOCKER_HOST_INTERNAL = os.environ.get("DOCKER_HOST_INTERNAL", "host.docker.internal")
-APP_PORT = os.environ.get("APP_PORT", "3000")
-APP_URL = f"http://{DOCKER_HOST_INTERNAL}:{APP_PORT}/image_cores/"
-JOB_DB = "/app/db/job_queue.db"
 
 # initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -25,34 +23,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # log APP_URL and JOB_DB
 logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
 logging.info(f"the local job db for the image to text service is defined as: {JOB_DB}")
-
-
-# initialize local db / table
-def init_db():
-    conn = sqlite3.connect(JOB_DB)
-    cursor = conn.cursor()
-
-    # create table for job queue
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            image_core_id INTEGER,
-            image_path TEXT NOT NULL,
-            model TEXT NOT NULL
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-# check queue length
-def check_queue():
-    conn = sqlite3.connect(JOB_DB)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM jobs")
-    count = cursor.fetchone()[0]
-    return {"queue_length": count}
 
 
 # initialize model - download weights
@@ -229,8 +199,25 @@ def home():
 
 
 if __name__ == "__main__":
+    # look for 'testing' command line argument if passed
+    import sys
+    if len(sys.argv) > 1:
+        # collect first arg
+        arg = sys.argv[1]
+        print('arg', arg)
+        if arg == "testing":
+            # get current working directory
+            import os
+            dir = os.getcwd()
+
+            # update JOB_DB for testing
+            JOB_DB = dir + "/tests/db/job_queue.db"
+
+            # log updated JOB_DB
+            logging.info(f"INFO: TESTING with updated job db located at: {JOB_DB}")             
+
     # Initialize the database
-    init_db()
+    init_db(JOB_DB)
 
     # initialize model (optional)
     # init_model()
