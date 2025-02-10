@@ -1,6 +1,7 @@
 import sqlite3
 import threading
 import logging
+from fastapi import FastAPI
 from data_models import JobModel
 from constants import APP_URL
 from constants import JOB_DB
@@ -15,11 +16,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
 logging.info(f"the local job db for the image to text service is defined as: {JOB_DB}")
 
-
-from fastapi import FastAPI
-
 # initialize FastAPI app
 app = FastAPI()
+
+@app.get("/")
+def home():
+    logging.info("HELLO WORLD")
+    return {"status": "HELLO WORLD"}
 
 @app.post("/add_job")
 def add_job(job: JobModel):
@@ -79,12 +82,6 @@ def remove_job(image_core_id: int):
     return {"status": "Job removed from queue"}
 
 
-@app.get("/")
-def home():
-    logging.info("HELLO WORLD")
-    return {"status", "HELLO WORLD"}
-
-
 if __name__ == "__main__":
     # look for 'testing' command line argument if passed
     import sys
@@ -100,7 +97,7 @@ if __name__ == "__main__":
             JOB_DB = dir + "/tests/db/job_queue.db"
 
             # log updated JOB_DB
-            logging.info(f"INFO: TESTING with updated job db located at: {JOB_DB}")             
+            logging.info(f"INFO: TESTING with updated job db located at: {JOB_DB}")
 
     # Initialize the database
     init_db(JOB_DB)
