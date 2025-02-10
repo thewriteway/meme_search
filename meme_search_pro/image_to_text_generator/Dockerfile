@@ -8,7 +8,8 @@ RUN pip --timeout=1000 install uv
 WORKDIR /app
 
 # Copy the requirements file and app code
-COPY . ./
+COPY ./requirements.txt ./
+COPY ./app ./
 
 # Install the required Python packages
 RUN uv pip install --system -r requirements.txt

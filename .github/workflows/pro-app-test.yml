@@ -7,7 +7,7 @@ on:
       - "meme_search_pro/meme_search_app/**"
 
 jobs:
-  scan_ruby:
+  pro_app_ruby_check:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,7 +29,7 @@ jobs:
         run: bin/brakeman -w3 --no-pager
         working-directory: ./meme_search_pro/meme_search_app
 
-  scan_js:
+  pro_app_js_check:
     runs-on: ubuntu-latest
 
     steps:
@@ -51,7 +51,7 @@ jobs:
         working-directory: ./meme_search_pro/meme_search_app
         run: gem uninstall error_highlight -v 0.3.0 && bin/importmap audit
 
-  lint:
+  pro_app_lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,7 +72,7 @@ jobs:
         run: gem uninstall error_highlight -v 0.3.0 && bin/rubocop -f github
         working-directory: ./meme_search_pro/meme_search_app
 
-  test:
+  pro_app_tests:
     runs-on: ubuntu-latest
 
     services:
