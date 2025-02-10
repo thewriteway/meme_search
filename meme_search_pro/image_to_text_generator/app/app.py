@@ -1,21 +1,12 @@
-from fastapi import FastAPI
 import sqlite3
-import time
 import threading
 import logging
-import requests
 from data_models import JobModel
-from image_to_text_generator import image_to_text
-from constants import default_model
 from constants import APP_URL
 from constants import JOB_DB
 from job_queue import init_db
-from job_queue import check_queue
-
-
-# initialize FastAPI app
-app = FastAPI()
-lock = threading.Lock()
+from senders import status_sender
+from jobs import process_jobs
 
 # initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -25,114 +16,10 @@ logging.info(f"the app url for return signals from the image to text generator i
 logging.info(f"the local job db for the image to text service is defined as: {JOB_DB}")
 
 
-# initialize model - download weights
-def init_model(model_name: str = default_model) -> None:
-    with lock:
-        image_path = "do_not_remove.jpg"
-        description = image_to_text(image_path, model_name)
-        logging.info(
-            "Finished model download and initial test - image description: %s",
-            description,
-        )
-        logging.info("INFO: ready to process jobs!")
+from fastapi import FastAPI
 
-
-def description_sender(output_job_details: dict) -> dict:
-    try:
-        response = requests.post(APP_URL + "description_receiver", json={"data": output_job_details})
-        if response.status_code == 200:
-            logging.info(f"SUCCESS: description_sender successfully delivered {output_job_details}")
-        else:
-            logging.info(f"FAILURE: description_sender failed to deliver {output_job_details} with response code {response.status_code}")
-    except Exception as e:
-        failure_message = f"FAILURE: description_sender failed with exception {e}"
-        logging.error(failure_message)
-
-
-def status_sender(status_job_details: dict) -> None:
-    try:
-        response = requests.post(APP_URL + "status_receiver", json={"data": status_job_details})
-        if response.status_code >= 200 and response.status_code < 300:
-            logging.info(f"SUCCESS: status_sender successfully delivered {status_job_details}")
-        else:
-            logging.info(f"FAILURE: status_sender failed to deliver {status_job_details} with response code {response.status_code}")
-    except Exception as e:
-        failure_message = f"FAILURE: status_sender failed with exception {e}"
-        logging.error(failure_message)
-
-
-def proccess_job(input_job_details: dict) -> dict:
-    # simulate job processing
-    # time.sleep(5)
-
-    # # Specify the file path
-    # from pathlib import Path
-    # file_path = Path(input_job_details["image_path"])
-
-    # # Get the size of the file in bytes
-    # file_size = file_path.stat().st_size
-    # logging.info(f"SIZE OF TEST FILE --> {file_size}")
-    # description = "this is a test"
-
-    # process image
-    description = image_to_text(input_job_details["image_path"], input_job_details["model"])
-
-    # create return payload
-    output_job_details = {
-        "image_core_id": input_job_details["image_core_id"],
-        "description": description,
-    }
-    return output_job_details
-
-
-def process_jobs():
-    while True:
-        with lock:
-            conn = sqlite3.connect(JOB_DB)
-            cursor = conn.cursor()
-
-            cursor.execute("SELECT * FROM jobs ORDER BY id LIMIT 1")
-            job = cursor.fetchone()
-
-            if job:
-                # unpack job
-                job_id, image_core_id, image_path, model = job
-
-                # pack up data for processing / status update
-                input_job_details = {
-                    "image_core_id": image_core_id,
-                    "image_path": "/public/memes/" + image_path,
-                    "model": model,
-                }
-                status_job_details = {"image_core_id": image_core_id, "status": 2}
-
-                # send status update (image out of queue and in process)
-                status_sender(status_job_details)
-
-                # report that processing has begun
-                logging.info("Processing job: %s", input_job_details)
-
-                # process job
-                output_job_details = proccess_job(input_job_details)
-
-                # send results to main app
-                description_sender(output_job_details)
-
-                # send status update (image processing complete)
-                status_job_details["status"] = 3
-                status_sender(status_job_details)
-
-                # log completion
-                logging.info("Finished processing job: %s", input_job_details)
-
-                # Remove the processed job from the queue
-                cursor.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
-                conn.commit()
-            else:
-                # If there are no jobs, wait for a while before checking again
-                logging.info("No jobs in queue. Waiting...")
-                time.sleep(5)
-
+# initialize FastAPI app
+app = FastAPI()
 
 @app.post("/add_job")
 def add_job(job: JobModel):
@@ -204,7 +91,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         # collect first arg
         arg = sys.argv[1]
-        print('arg', arg)
         if arg == "testing":
             # get current working directory
             import os
@@ -222,8 +108,9 @@ if __name__ == "__main__":
     # initialize model (optional)
     # init_model()
 
-    # Start the job processing thread
-    threading.Thread(target=process_jobs, daemon=True).start()
+    # Start the job processing thread - pass JOB_DB
+    threading.Thread(target=process_jobs, args=(JOB_DB,), daemon=True).start()
+    # threading.Thread(target=process_jobs, daemon=True).start()
 
     # Run the FastAPI app
     import uvicorn
