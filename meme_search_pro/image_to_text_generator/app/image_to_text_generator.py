@@ -1,4 +1,5 @@
 import logging
+import time
 from model_init import model_selector
 
 
@@ -17,6 +18,10 @@ def image_to_text(image_path: str, model_name: str) -> str:
     try:
         # get instance of model
         current_model = download_model(model_name)
+
+        # if model is 'test' pause for 5 seconds to allow testing
+        if model_name == "test":
+            time.sleep(5)
 
         # process
         description = current_model.extract(image_path)

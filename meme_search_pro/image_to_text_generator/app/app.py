@@ -24,6 +24,7 @@ def home():
     logging.info("HELLO WORLD")
     return {"status": "HELLO WORLD"}
 
+
 @app.post("/add_job")
 def add_job(job: JobModel):
     conn = sqlite3.connect(JOB_DB)
