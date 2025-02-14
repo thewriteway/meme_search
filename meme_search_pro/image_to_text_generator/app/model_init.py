@@ -1,7 +1,22 @@
 from PIL import Image
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+from transformers import AutoModelForCausalLM, AutoModelForVision2Seq, AutoProcessor
+from transformers.image_utils import load_image
 from constants import available_models
 from log_config import logging 
+
+
+# Automatically determine the best available device
+if torch.backends.mps.is_available():
+    device = "mps"  # Metal (Apple Silicon)
+elif torch.cuda.is_available():
+    device = "cuda"  # NVIDIA GPU
+else:
+    device = "cpu"  # Fallback to CPU
+
+torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+
+logging.info(f"INFO: using device: {device}")
 
 
 # set model and tokenizer
@@ -20,8 +35,18 @@ class TestImageToText:
         return "this is a test"
 
 
-# class for model / tokenizer
 class MoondreamImageToText:
+    """
+    moondream v2 is a 1.9B text-to-image model that has several great capabilities trained in.
+    These include:
+    - captioning (used here)
+    - general querying (e.g., "how many people are in this image?")
+    - object detection
+    - gaze detection
+
+    for our application we use the "short caption" functionality.
+    the repo: https://huggingface.co/vikhyatk/moondream2
+    """
     def __init__(self, model_id, revision):
         self.model_id = model_id
         self.revision = revision
@@ -30,15 +55,14 @@ class MoondreamImageToText:
         self.downloaded = False
 
     def download(self):
-        logging.info(f"INFO: downloading tokenizer for model {self.model_id}...")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id, revision=self.revision)
-        logging.info("INFO:... complete")
-
-        logging.info(f"INFO: downloading model for model {self.model_id}...")
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_id, trust_remote_code=True, revision=self.revision)
-        logging.info("INFO:... complete")
+        logging.info("INFO: starting download or loading of model - moondream...")
+        self.model = AutoModelForCausalLM.from_pretrained(
+            "vikhyatk/moondream2",
+            revision="2025-01-09",
+            trust_remote_code=True,
+        ).to(device)
+        logging.info("INFO: ... complete")
         self.downloaded = True
-
         return None
 
     def extract(self, image_path):
@@ -52,33 +76,131 @@ class MoondreamImageToText:
         # normalize image_path to working directory
         image_path = "/app" + image_path
 
-        # create prompt
-        logging.info("STARTING: image_to_text extraction of image --> %s", image_path)
-        prompt = "Describe this image, including any text you see on the image."
+        # load in image
+        image = Image.open(image_path)
+        logging.info(f"DONE: image loaded, starting generation --> {image_path}")
+
+        # process image
+        logging.info(f"INFO: starting image to text extraction for image --> {image_path}")
+        caption = self.model.caption(image, length="short")["caption"]
+        logging.info("INFO: ... done")
+        return caption.strip()
+
+
+class Florence2ImageToText:
+    """
+    florence-2-large is a 0.7B text-to-image model that has several interesting capabilities trained in.
+    These include:
+    - captioning - with various lengths
+    - general querying (e.g., "how many people are in this image?")
+    - object detection
+    - segmentation
+
+    There are several smaller versions of the model as well.
+
+    We use the medium-length captioning functionality here.
+
+    the repo: https://huggingface.co/microsoft/Florence-2-large
+    """
+    def __init__(self, model_id, revision):
+        self.model_id = model_id
+        self.revision = revision
+        self.model = None
+        self.processor = None
+        self.downloaded = False
+
+    def download(self):
+        logging.info("INFO: starting download or loading of model - florence 2...")
+        self.model = AutoModelForCausalLM.from_pretrained("microsoft/Florence-2-large", torch_dtype=torch_dtype, trust_remote_code=True).to(device)
+        self.processor = AutoProcessor.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
+        logging.info("INFO: ... done")
+        self.downloaded = True
+        return None
+
+    def extract(self, image_path):
+        # check if downloaded
+        if self.downloaded is False:
+            message = "INFO: model not downloaded, downloading..."
+            logging.info(message)
+            self.download()
+            logging.info("INFO: model downloaded, starting image processing")
+
+        # normalize image_path to working directory
+        image_path = "/app" + image_path
+
+        # load in image
+        logging.info(f"INFO: starting image to text extraction for image {image_path}...")
+        image = Image.open(image_path)
+        task = "<DETAILED_CAPTION>"
+        inputs = self.processor(text=task, images=image, return_tensors="pt").to(device, torch_dtype)
+        generated_ids = self.model.generate(
+            input_ids=inputs["input_ids"],
+            pixel_values=inputs["pixel_values"],
+            max_new_tokens=4096,
+            num_beams=3,
+            do_sample=False
+        )
+        generated_text = self.processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
+        parsed_answer = self.processor.post_process_generation(generated_text, task=task, image_size=(image.width, image.height))
+        print("INFO: ... done")
+
+        if '<DETAILED_CAPTION>' in parsed_answer:
+            return parsed_answer['<DETAILED_CAPTION>']
+
+        return ""
+
+
+class MoondreamImageToText:
+    """
+    moondream v2 is a 1.9B text-to-image model that has several great capabilities trained in.
+    These include:
+    - captioning (used here)
+    - general querying (e.g., "how many people are in this image?")
+    - object detection
+    - gaze detection
+
+    for our application we use the "short caption" functionality.
+    the repo: https://huggingface.co/vikhyatk/moondream2
+    """
+    def __init__(self, model_id, revision):
+        self.model_id = model_id
+        self.revision = revision
+        self.model = None
+        self.tokenizer = None
+        self.downloaded = False
+
+    def download(self):
+        logging.info("INFO: starting download or loading of model - moondream...")
+        self.model = AutoModelForCausalLM.from_pretrained(
+            "vikhyatk/moondream2",
+            revision="2025-01-09",
+            trust_remote_code=True,
+        ).to(device)
+        logging.info("INFO: ... complete")
+        self.downloaded = True
+        return None
+
+    def extract(self, image_path):
+        # check if downloaded
+        if self.downloaded is False:
+            message = "INFO: model not downloaded, downloading..."
+            logging.info(message)
+            self.download()
+            logging.info("INFO: model downloaded, starting image processing")
+
+        # normalize image_path to working directory
+        image_path = "/app" + image_path
 
         # load in image
         image = Image.open(image_path)
-        logging.info("DONE: image loaded, starting generation --> %s", image_path)
+        logging.info(f"DONE: image loaded, starting generation --> {image_path}")
 
         # process image
-        enc_image = self.model.encode_image(image)
-        logging.info("DONE: image encoding complete, starting generation --> %s", image_path)
-        description = self.model.answer_question(enc_image, prompt, self.tokenizer)
-        logging.info("DONE: image to text generation complete --> %s", image_path)
+        logging.info(f"INFO: starting image to text extraction for image --> {image_path}")
+        caption = self.model.caption(image, length="short")["caption"]
+        logging.info("INFO: ... done")
+        return caption.strip()
 
-        # cleanup description
-        description = description.strip().split(" ")[3:]
-        description[0] = description[0].capitalize()
-        description = " ".join(description)
-        logging.info("DONE: image to text cleanup complete --> %s", image_path)
-
-        return description
-
-    def get_model(self):
-        return self.model
-
-    def get_tokenizer(self):
-        return self.tokenizer
 
 
 # function to route ImageToText model based on model_name - return instance of correct model class
