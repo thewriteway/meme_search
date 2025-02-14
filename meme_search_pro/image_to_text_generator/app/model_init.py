@@ -1,11 +1,8 @@
-import os
 from PIL import Image
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from constants import available_models
-import logging
+from log_config import logging 
 
-# set logging level
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # set model and tokenizer
 model = None

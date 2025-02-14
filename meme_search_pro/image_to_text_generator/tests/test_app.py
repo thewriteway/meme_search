@@ -1,6 +1,8 @@
 import subprocess
 import time
 import requests
+import os
+
 
 APP_START_CMD = ["python", "app/app.py", "testing"]  # Command for app start
 DUMMY_START_CMD = ["python", "tests/dummy_app_server.py"] # Command for dummy server start
@@ -75,15 +77,18 @@ def test_dummy_hello_world():
 # Test processing with 'test' model
 def test_process_image():
     """Test the process_image route."""
-    app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    os.set_blocking(app_process.stdout.fileno(), False)
+    os.set_blocking(dummy_process.stdout.fileno(), False)
 
     try:
         # Start image to text serverserver
         assert wait_for_server(SERVER_URL), "Image to text server did not start in time"
 
         # Start dummy server to receive sender messages
-        # STOPPED HERE - FINISH DUMMY TEST FOR PROCESSING
+        assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
 
         # Send in POST request with image_core_id, path to image, and 'test' model
         response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "../app/do_not_remove.jpg", "model": "test"})
@@ -92,12 +97,19 @@ def test_process_image():
         assert response.status_code == 200
         assert response.json() == {"status": "Job added to queue"}
 
-        # Start server to receive message: response = requests.post(APP_URL + "description_receiver", json={"data": output_job_details})
+        # Tail dummy server logs
+        time.sleep(6)
+        app_logs = ""
+        for _ in range(20):
+            logline = app_process.stderr.readline().strip()
+            if isinstance(logline, str):
+                app_logs += logline
 
+        assert "status_sender successfully delivered" in app_logs, "status_sender failed"
+        assert "description_sender successfully delivered" in app_logs, "description_sender failed"
 
-        response = requests.post(SERVER_URL + "/process_image", json={"image_core_id": "test"})
-        assert response.status_code == 200
-        assert response.json() == {"status": "Job removed from queue"}
     finally:
-        app_process.terminate()  # Stop the process after test
-        app_process.wait()  # Ensure process cleanup
+        app_process.terminate()  
+        app_process.wait() 
+        dummy_process.terminate()
+        dummy_process.wait()

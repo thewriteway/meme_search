@@ -1,6 +1,5 @@
 import sqlite3
 import threading
-import logging
 from fastapi import FastAPI
 from data_models import JobModel
 from constants import APP_URL
@@ -8,9 +7,8 @@ from constants import JOB_DB
 from job_queue import init_db
 from senders import status_sender
 from jobs import process_jobs
+from log_config import logging 
 
-# initialize logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # log APP_URL and JOB_DB
 logging.info(f"the app url for return signals from the image to text generator is defined as: {APP_URL}")
@@ -43,7 +41,7 @@ def add_job(job: JobModel):
     status_job_details = {"image_core_id": job.image_core_id, "status": 1}
 
     # send status update (image out of queue and in process)
-    status_sender(status_job_details)
+    status_sender(status_job_details, APP_URL)
 
     return {"status": "Job added to queue"}
 
@@ -100,6 +98,13 @@ if __name__ == "__main__":
             # log updated JOB_DB
             logging.info(f"INFO: TESTING with updated job db located at: {JOB_DB}")
 
+            # delete the db file if it exists
+            if os.path.exists(JOB_DB):
+                os.remove(JOB_DB)
+
+            # reset APP_URL for testing
+            APP_URL = "http://localhost:3000/"
+
     # Initialize the database
     init_db(JOB_DB)
 
@@ -107,7 +112,7 @@ if __name__ == "__main__":
     # init_model()
 
     # Start the job processing thread - pass JOB_DB
-    threading.Thread(target=process_jobs, args=(JOB_DB,), daemon=True).start()
+    threading.Thread(target=process_jobs, args=(JOB_DB, APP_URL,), daemon=True).start()
     # threading.Thread(target=process_jobs, daemon=True).start()
 
     # Run the FastAPI app

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
+import uvicorn
 import logging
-from image_to_text_generator.constants import APP_URL, APP_PORT
 
 # initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -24,5 +24,4 @@ def status_receiver(data: dict):
     return {"status": "STATUS RECEIVER"}
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="
+    uvicorn.run(app, host="0.0.0.0", port=3000)

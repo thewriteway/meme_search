@@ -1,4 +1,4 @@
-import logging
+from log_config import logging 
 import time
 from model_init import model_selector
 
@@ -25,6 +25,7 @@ def image_to_text(image_path: str, model_name: str) -> str:
 
         # process
         description = current_model.extract(image_path)
+        logging.info(f"INFO: the description of image {image_path} is: {description}")
         return description
     except Exception as e:
         error_msg = "ERROR: image_to_text extraction of image --> %s", image_path + f" failed with error: {e}"
