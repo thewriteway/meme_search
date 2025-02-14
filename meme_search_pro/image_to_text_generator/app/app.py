@@ -46,6 +46,21 @@ def add_job(job: JobModel):
     return {"status": "Job added to queue"}
 
 
+@app.get("/check_queue")
+def check_queue():
+    conn = sqlite3.connect(JOB_DB)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM jobs")
+    count = cursor.fetchone()[0]
+
+    conn.close()
+
+    logging.info("Queue length: %s", count)
+
+    return {"queue_length": count}
+
+
 @app.delete("/remove_job/{image_core_id}")
 def remove_job(image_core_id: int):
     conn = sqlite3.connect(JOB_DB)
@@ -63,7 +78,7 @@ def remove_job(image_core_id: int):
         status_job_details = {"image_core_id": image_core_id, "status": 3}
 
         # send status update (reset status)
-        status_sender(status_job_details)
+        status_sender(status_job_details, APP_URL)
 
         return {"status": "Job removed from queue"}
 
@@ -76,7 +91,7 @@ def remove_job(image_core_id: int):
 
     # run status update
     status_job_details = {"image_core_id": image_core_id, "status": 0}
-    status_sender(status_job_details)
+    status_sender(status_job_details, APP_URL)
 
     return {"status": "Job removed from queue"}
 

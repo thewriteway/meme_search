@@ -97,10 +97,35 @@ def test_process_image():
         assert response.status_code == 200
         assert response.json() == {"status": "Job added to queue"}
 
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 1}, "Queue length is not 1"
+
+        # Send in second POST request with image_core_id, path to image, and 'test' model
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "../app/do_not_remove.jpg", "model": "test"})
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job added to queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 2}, "Queue length is not 2"
+
+        # Remove job
+        response = requests.delete(SERVER_URL + "/remove_job/1")
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job removed from queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 1}, "Queue length is not 1"
+
         # Tail dummy server logs
         time.sleep(6)
         app_logs = ""
-        for _ in range(20):
+        for _ in range(30):
             logline = app_process.stderr.readline().strip()
             if isinstance(logline, str):
                 app_logs += logline
