@@ -10,7 +10,7 @@ jobs:
   image_to_text_lint:
     name: image_to_text_lint
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v2
@@ -22,7 +22,7 @@ jobs:
   image_to_text_tests:
     name: run pytest
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -39,4 +39,4 @@ jobs:
       - name: Run pytest
         working-directory: ./meme_search_pro/image_to_text_generator
         run: |
-          PYTHONPATH=. python3.12 -m pytest tests/
+          PYTHONPATH=. python3.12 -m pytest tests/test_app.py

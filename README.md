@@ -115,7 +115,7 @@ docker exec meme_search python meme_search/utilities/create.py
 
 You will see printouts at the terminal indicating success of the 3 main stages for making your memes searchable. These steps are
 
-1.  **extract**: get text descriptions of each image, including ocr of any text on the image, using the kickass tiny vision-llm [moondream](https://github.com/vikhyat/moondream)
+1.  **extract**: get text descriptions of each image, including ocr of any text on the image, using the 2 Billion parameter vision-language model [moondream](https://github.com/vikhyat/moondream)
 
 2.  **embed**: window and embed each image's text description using a popular embedding model - [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
 
@@ -125,7 +125,7 @@ You will see printouts at the terminal indicating success of the 3 main stages f
 
 This meme search pipeline is written in pure Python and is built using the following open source components:
 
-- [moondream](https://github.com/vikhyat/moondream): a tiny, kickass vision language model used for image captioning / extracting image text
+- [moondream](https://github.com/vikhyat/moondream): a small vision language model used for image captioning / extracting image text
 - [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2): a very popular text embedding model
 - [faiss](https://github.com/facebookresearch/faiss): a fast and efficient vector db
 - [sqlite](https://sqlite.org/): the greatest database of all time, used for data indexing
@@ -176,33 +176,37 @@ The pro version of meme search builds on the standard version, adding an array o
 
 These additional features include:
 
-1.  **Auto-Generate Meme Descriptions**
+1. **Multiple Image-to-Text Models**
 
-    Target specific memes for auto-description generation (instead of applying to your entire directory).
+   Choose the right size image to text model for your needs / resources - from small (~200 Million parameters) to large (~2 Billion parameters). See `MODEL_CHOICES.md` for a list of all currently available models.
 
-2.  **Manual Meme Description Editing**
+2. **Auto-Generate Meme Descriptions**
 
-    Edit or add descriptions manually for better search results, no need to wait for auto-generation if you don't want to.
+   Target specific memes for auto-description generation (instead of applying to your entire directory).
 
-3.  **Tags**
+3. **Manual Meme Description Editing**
 
-    Create, edit, and assign tags to memes for better organization and search filtering.
+   Edit or add descriptions manually for better search results, no need to wait for auto-generation if you don't want to.
 
-4.  **Faster Vector Search**
+4. **Tags**
 
-    Powered by Postgres and pgvector, enjoy faster keyword and vector searches with streamlined database transactions.
+   Create, edit, and assign tags to memes for better organization and search filtering.
 
-5.  **Keyword Search**
+5. **Faster Vector Search**
 
-    Pro adds traditional keyword search in addition to semantic/vector search.
+   Powered by Postgres and pgvector, enjoy faster keyword and vector searches with streamlined database transactions.
 
-6.  **Directory Paths**
+6. **Keyword Search**
 
-    Organize your memes across multiple subdirectories—no need to store everything in one folder.
+   Pro adds traditional keyword search in addition to semantic/vector search.
 
-7.  **New Organizational Tools**
+7. **Directory Paths**
 
-    Filter by tags, directory paths, and description embeddings, plus toggle between keyword and vector search for more control.
+   Organize your memes across multiple subdirectories—no need to store everything in one folder.
+
+8. **New Organizational Tools**
+
+   Filter by tags, directory paths, and description embeddings, plus toggle between keyword and vector search for more control.
 
 ### Installation instructions - pro version
 

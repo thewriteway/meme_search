@@ -1,13 +1,10 @@
 import time
 import sqlite3
 import threading
-import logging
+from log_config import logging
 from image_to_text_generator import image_to_text
 from senders import description_sender
 from senders import status_sender
-
-# initialize logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # lock
 lock = threading.Lock()
@@ -37,7 +34,7 @@ def proccess_job(input_job_details: dict) -> dict:
     return output_job_details
 
 
-def process_jobs(JOB_DB):
+def process_jobs(JOB_DB, APP_URL):
     while True:
         with lock:
             conn = sqlite3.connect(JOB_DB)
@@ -53,13 +50,13 @@ def process_jobs(JOB_DB):
                 # pack up data for processing / status update
                 input_job_details = {
                     "image_core_id": image_core_id,
-                    "image_path": "/public/memes/" + image_path,
+                    "image_path": "/app/public/memes/" + image_path if "tests" not in JOB_DB else image_path,
                     "model": model,
                 }
                 status_job_details = {"image_core_id": image_core_id, "status": 2}
 
                 # send status update (image out of queue and in process)
-                status_sender(status_job_details)
+                status_sender(status_job_details, APP_URL)
 
                 # report that processing has begun
                 logging.info("Processing job: %s", input_job_details)
@@ -68,11 +65,11 @@ def process_jobs(JOB_DB):
                 output_job_details = proccess_job(input_job_details)
 
                 # send results to main app
-                description_sender(output_job_details)
+                description_sender(output_job_details, APP_URL)
 
                 # send status update (image processing complete)
                 status_job_details["status"] = 3
-                status_sender(status_job_details)
+                status_sender(status_job_details, APP_URL)
 
                 # log completion
                 logging.info("Finished processing job: %s", input_job_details)

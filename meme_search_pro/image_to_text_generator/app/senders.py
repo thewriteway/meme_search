@@ -1,12 +1,8 @@
-import logging
+from log_config import logging
 import requests
-from constants import APP_URL
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-
-def description_sender(output_job_details: dict) -> dict:
+def description_sender(output_job_details: dict, APP_URL: str) -> None:
     try:
         response = requests.post(APP_URL + "description_receiver", json={"data": output_job_details})
         if response.status_code == 200:
@@ -18,7 +14,7 @@ def description_sender(output_job_details: dict) -> dict:
         logging.error(failure_message)
 
 
-def status_sender(status_job_details: dict) -> None:
+def status_sender(status_job_details: dict, APP_URL: str) -> None:
     try:
         response = requests.post(APP_URL + "status_receiver", json={"data": status_job_details})
         if response.status_code >= 200 and response.status_code < 300:

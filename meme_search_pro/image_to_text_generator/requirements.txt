@@ -6,3 +6,6 @@ torch
 torchvision
 transformers
 einops
+pyvips
+timm
+# flash_attn
