@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-2-15
+
+Quality of life updates to the Pro version including:
+
+- image to text new models added: florence-2-base (new default), florence-2-large, smolvlm-256, smolvlm-500
+- updated moondream2 to current revision
+- routing for model-based extraction added
+- new test database added to image-to-text service for more comprehensive testing
+- image to text server, test model, florence-2-base, and smovlm-256 tests added
+- gh action scripts refactored for easier (local) testing
+
 ## 2025-1-30
 
 Quality of life updates to the Pro version of Meme Search, including:
