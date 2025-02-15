@@ -16,7 +16,6 @@ WORKDIR /rails
 #     apt-get install -y curl libjemalloc2 libvips sqlite3 libpq-dev && \
 #     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 RUN apt-get update -qq
-RUN apt-get upgrade -y
 RUN apt-get install -y curl 
 RUN apt-get install -y libjemalloc2
 RUN apt-get install -y libvips
