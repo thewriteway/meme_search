@@ -8,4 +8,4 @@ transformers
 einops
 pyvips
 timm
-flash_attn
+# flash_attn

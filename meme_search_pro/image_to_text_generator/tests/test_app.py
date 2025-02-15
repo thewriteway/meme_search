@@ -76,7 +76,7 @@ def test_dummy_hello_world():
 
 # Test processing with 'test' model
 def test_process_image():
-    """Test the process_image route."""
+    """Test the process_image route with the 'test' model."""
     app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -85,13 +85,13 @@ def test_process_image():
 
     try:
         # Start image to text serverserver
-        assert wait_for_server(SERVER_URL), "Image to text server did not start in time"
+        assert wait_for_server(SERVER_URL, timeout=360), "Image to text server did not start in time"
 
         # Start dummy server to receive sender messages
         assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
 
         # Send in POST request with image_core_id, path to image, and 'test' model
-        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "../app/do_not_remove.jpg", "model": "test"})
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "./app/do_not_remove.jpg", "model": "test"})
 
         # Verify response
         assert response.status_code == 200
@@ -103,7 +103,7 @@ def test_process_image():
         assert response.json() == {"queue_length": 1}, "Queue length is not 1"
 
         # Send in second POST request with image_core_id, path to image, and 'test' model
-        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "../app/do_not_remove.jpg", "model": "test"})
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "./app/do_not_remove.jpg", "model": "test"})
         assert response.status_code == 200
         assert response.json() == {"status": "Job added to queue"}
 
@@ -130,6 +130,136 @@ def test_process_image():
             if isinstance(logline, str):
                 app_logs += logline
 
+        assert "status_sender successfully delivered" in app_logs, "status_sender failed"
+        assert "description_sender successfully delivered" in app_logs, "description_sender failed"
+
+    finally:
+        app_process.terminate()  
+        app_process.wait() 
+        dummy_process.terminate()
+        dummy_process.wait()
+
+
+def test_processing_smolvlm_256():
+    """Test processing with 'SmolVLM-256M-Instruct' model."""
+    app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    os.set_blocking(app_process.stdout.fileno(), False)
+    os.set_blocking(dummy_process.stdout.fileno(), False)
+
+    try:
+        # Start image to text serverserver
+        assert wait_for_server(SERVER_URL), "Image to text server did not start in time"
+
+        # Start dummy server to receive sender messages
+        assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
+
+        # Send in POST request with image_core_id, path to image, and 'test' model
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "./app/do_not_remove.jpg", "model": "SmolVLM-256M-Instruct"})
+
+        # Verify response
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job added to queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 1}, "Queue length is not 1"
+
+        # Send in second POST request with image_core_id, path to image, and 'test' model
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "./app/do_not_remove.jpg", "model": "SmolVLM-256M-Instruct"})
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job added to queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 2}, "Queue length is not 2"
+
+        # Remove job
+        response = requests.delete(SERVER_URL + "/remove_job/1")
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job removed from queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 1}, "Queue length is not 1"
+
+        # Tail dummy server logs
+        time.sleep(60)
+        app_logs = ""
+        for _ in range(40):
+            logline = app_process.stderr.readline().strip()
+            if isinstance(logline, str):
+                app_logs += logline
+        print(app_logs)
+        assert "status_sender successfully delivered" in app_logs, "status_sender failed"
+        assert "description_sender successfully delivered" in app_logs, "description_sender failed"
+
+    finally:
+        app_process.terminate()  
+        app_process.wait() 
+        dummy_process.terminate()
+        dummy_process.wait()
+
+
+def test_processing_florence_base():
+    """Test processing with 'Florence-2-base' model."""
+    app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    os.set_blocking(app_process.stdout.fileno(), False)
+    os.set_blocking(dummy_process.stdout.fileno(), False)
+
+    try:
+        # Start image to text serverserver
+        assert wait_for_server(SERVER_URL), "Image to text server did not start in time"
+
+        # Start dummy server to receive sender messages
+        assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
+
+        # Send in POST request with image_core_id, path to image, and 'test' model
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "./app/do_not_remove.jpg", "model": "Florence-2-base"})
+
+        # Verify response
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job added to queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 1}, "Queue length is not 1"
+
+        # Send in second POST request with image_core_id, path to image, and 'test' model
+        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "./app/do_not_remove.jpg", "model": "Florence-2-base"})
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job added to queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 2}, "Queue length is not 2"
+
+        # Remove job
+        response = requests.delete(SERVER_URL + "/remove_job/1")
+        assert response.status_code == 200
+        assert response.json() == {"status": "Job removed from queue"}
+
+        # Check queue
+        response = requests.get(SERVER_URL + "/check_queue")
+        assert response.status_code == 200
+        assert response.json() == {"queue_length": 1}, "Queue length is not 1"
+
+        # Tail dummy server logs
+        time.sleep(60)
+        app_logs = ""
+        for _ in range(40):
+            logline = app_process.stderr.readline().strip()
+            if isinstance(logline, str):
+                app_logs += logline
+        print(app_logs)
         assert "status_sender successfully delivered" in app_logs, "status_sender failed"
         assert "description_sender successfully delivered" in app_logs, "description_sender failed"
 

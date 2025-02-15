@@ -72,9 +72,6 @@ class MoondreamImageToText:
             self.download()
             logging.info("INFO: model downloaded, starting image processing")
 
-        # normalize image_path to working directory
-        image_path = "/app" + image_path
-
         # load in image
         image = Image.open(image_path)
         logging.info(f"DONE: image loaded, starting generation --> {image_path}")
@@ -123,9 +120,6 @@ class Florence2BaseImageToText:
             logging.info(message)
             self.download()
             logging.info("INFO: model downloaded, starting image processing")
-
-        # normalize image_path to working directory
-        image_path = "/app" + image_path
 
         # load in image
         logging.info(f"INFO: starting image to text extraction for image {image_path}...")
@@ -187,9 +181,6 @@ class Florence2LargeImageToText:
             self.download()
             logging.info("INFO: model downloaded, starting image processing")
 
-        # normalize image_path to working directory
-        image_path = "/app" + image_path
-
         # load in image
         logging.info(f"INFO: starting image to text extraction for image {image_path}...")
         image = Image.open(image_path)
@@ -241,7 +232,7 @@ class SmolVLM256ImageToText:
         self.model = AutoModelForVision2Seq.from_pretrained(
             model_size,
             torch_dtype=torch.bfloat16,
-            _attn_implementation="flash_attention_2" if device == "cuda" else "eager",
+            _attn_implementation="eager" #"flash_attention_2" if device == "cuda" else "eager",
         ).to(device)
         print("INFO: ... done")
 
@@ -255,9 +246,6 @@ class SmolVLM256ImageToText:
             logging.info(message)
             self.download()
             logging.info("INFO: model downloaded, starting image processing")
-
-        # normalize image_path to working directory
-        image_path = "/app" + image_path
 
         # load in image
         print(f"INFO: starting image to text extraction for image {image_path}...")
@@ -330,7 +318,7 @@ class SmolVLM500ImageToText:
         self.model = AutoModelForVision2Seq.from_pretrained(
             model_size,
             torch_dtype=torch.bfloat16,
-            _attn_implementation="flash_attention_2" if device == "cuda" else "eager",
+            _attn_implementation="eager" #"flash_attention_2" if device == "cuda" else "eager",
         ).to(device)
         print("INFO: ... done")
 
@@ -344,9 +332,6 @@ class SmolVLM500ImageToText:
             logging.info(message)
             self.download()
             logging.info("INFO: model downloaded, starting image processing")
-
-        # normalize image_path to working directory
-        image_path = "/app" + image_path
 
         # load in image
         print(f"INFO: starting image to text extraction for image {image_path}...")

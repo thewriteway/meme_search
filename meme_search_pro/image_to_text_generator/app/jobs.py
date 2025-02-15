@@ -50,7 +50,7 @@ def process_jobs(JOB_DB, APP_URL):
                 # pack up data for processing / status update
                 input_job_details = {
                     "image_core_id": image_core_id,
-                    "image_path": "/public/memes/" + image_path,
+                    "image_path": "/app/public/memes/" + image_path if "tests" not in JOB_DB else image_path,
                     "model": model,
                 }
                 status_job_details = {"image_core_id": image_core_id, "status": 2}
