@@ -17,10 +17,9 @@ WORKDIR /rails
 #     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 
-RUN rm /var/lib/dpkg/info/libc-bin.*
 RUN apt-get clean
 RUN apt-get update
-RUN apt-get install -y libc-bin
+RUN apt-get install -f
 RUN apt-get install -y curl 
 RUN apt-get install -y libjemalloc2
 RUN apt-get install -y libvips
