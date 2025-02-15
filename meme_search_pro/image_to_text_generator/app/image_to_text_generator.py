@@ -1,4 +1,4 @@
-from log_config import logging 
+from log_config import logging
 import time
 from model_init import model_selector
 

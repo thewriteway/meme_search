@@ -1,4 +1,4 @@
-from log_config import logging 
+from log_config import logging
 import requests
 
 

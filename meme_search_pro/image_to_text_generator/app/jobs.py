@@ -1,7 +1,7 @@
 import time
 import sqlite3
 import threading
-from log_config import logging 
+from log_config import logging
 from image_to_text_generator import image_to_text
 from senders import description_sender
 from senders import status_sender

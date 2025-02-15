@@ -2,7 +2,7 @@ from PIL import Image
 import torch
 from transformers import AutoModelForCausalLM, AutoModelForVision2Seq, AutoProcessor
 from constants import available_models
-from log_config import logging 
+from log_config import logging
 
 
 # Automatically determine the best available device
@@ -147,7 +147,7 @@ class Florence2BaseImageToText:
             return parsed_answer['<DETAILED_CAPTION>']
 
         return ""
-    
+
 
 class Florence2LargeImageToText:
     """
@@ -272,12 +272,12 @@ class SmolVLM256ImageToText:
                 ]
             },
         ]
-        
+
         # Prepare inputs
         prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
         inputs = self.processor(text=prompt, images=[image], return_tensors="pt")
         inputs = inputs.to(device)
-        
+
         # Generate outputs
         generated_ids = self.model.generate(**inputs, max_new_tokens=250)
         generated_texts = self.processor.batch_decode(
@@ -299,7 +299,7 @@ class SmolVLM256ImageToText:
         if substring in raw_output:
             raw_output = raw_output.split(substring, 1)[-1].strip()
         return raw_output
-    
+
 
 class SmolVLM500ImageToText:
     """
@@ -361,12 +361,12 @@ class SmolVLM500ImageToText:
                 ]
             },
         ]
-        
+
         # Prepare inputs
         prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True)
         inputs = self.processor(text=prompt, images=[image], return_tensors="pt")
         inputs = inputs.to(device)
-        
+
         # Generate outputs
         generated_ids = self.model.generate(**inputs, max_new_tokens=250)
         generated_texts = self.processor.batch_decode(
@@ -399,20 +399,24 @@ def model_selector(model_name: str) -> object:
             logging.error(error_msg)
             raise ValueError(error_msg)
 
-        # get model_id and revision
+        # select model in cases
         if model_name == "test":
             current_model = TestImageToText()
             return current_model
-        else:  # current default - model = "moondream2"
-            # initialize model
+        if model_name == "Florence-2-base":
+            current_model = Florence2BaseImageToText(model_id="microsoft/Florence-2-base", revision="2024-08-26")
+            return current_model
+        elif model_name == "Florence-2-large":
+            current_model = Florence2LargeImageToText(model_id="microsoft/Florence-2-large", revision="2024-08-26")
+            return current_model
+        elif model_name == "SmolVLM-256M-Instruct":
+            current_model = SmolVLM256ImageToText(model_id="HuggingFaceTB/SmolVLM-256M-Instruct", revision="2024-08-26")
+            return current_model
+        elif model_name == "SmolVLM-500M-Instruct":
+            current_model = SmolVLM500ImageToText(model_id="HuggingFaceTB/SmolVLM-500M-Instruct", revision="2024-08-26")
+            return current_model
+        elif model_name == "moondream2":
             current_model = MoondreamImageToText(model_id="vikhyatk/moondream2", revision="2024-08-26")
-
-            # turn down transformers verbose logs
-            # import transformers
-            # transformers.logging.set_verbosity_error()
-
-            # initialize logging
-            logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
             return current_model
     except Exception as e:
         error_msg = f"ERROR: choose_model failed with error: {e}"

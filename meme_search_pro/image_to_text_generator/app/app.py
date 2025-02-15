@@ -7,7 +7,7 @@ from constants import JOB_DB
 from job_queue import init_db
 from senders import status_sender
 from jobs import process_jobs
-from log_config import logging 
+from log_config import logging
 
 
 # log APP_URL and JOB_DB
