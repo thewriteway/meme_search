@@ -12,21 +12,9 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 WORKDIR /rails
 
 # Install base packages
-# RUN apt-get update -qq && apt upgrade && \
-#     apt-get install -y curl libjemalloc2 libvips sqlite3 libpq-dev && \
-#     rm -rf /var/lib/apt/lists /var/cache/apt/archives
-
-
-RUN apt-get clean
-RUN apt-get update
-RUN apt-get install -f
-RUN apt-get install -y curl 
-RUN apt-get install -y libjemalloc2
-RUN apt-get install -y libvips
-RUN apt-get install -y sqlite3
-RUN apt-get install -y libpq-dev
-RUN rm -rf /var/lib/apt/lists /var/cache/apt/archives
-
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y curl libjemalloc2 libvips sqlite3 libpq-dev && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Set production environment
 ENV RAILS_ENV="production" \
@@ -81,5 +69,3 @@ RUN ruby embedding_model_download.rb
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
 CMD ["./bin/rails", "server", "-b", "0.0.0.0"]
-
-
