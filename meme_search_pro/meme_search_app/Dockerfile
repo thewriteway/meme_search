@@ -15,8 +15,12 @@ WORKDIR /rails
 # RUN apt-get update -qq && apt upgrade && \
 #     apt-get install -y curl libjemalloc2 libvips sqlite3 libpq-dev && \
 #     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+
+RUN rm /var/lib/dpkg/info/libc-bin.*
+RUN apt-get clean
 RUN apt-get update
-RUN apt-get install --reinstall libc-bin
+RUN apt-get install -y libc-bin
 RUN apt-get install -y curl 
 RUN apt-get install -y libjemalloc2
 RUN apt-get install -y libvips
