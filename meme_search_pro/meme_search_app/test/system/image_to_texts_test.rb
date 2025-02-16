@@ -6,24 +6,30 @@ class ImageToTextsTest < ApplicationSystemTestCase
     assert_selector "h1", text: "Available models"
   end
 
-  # collect all available model names by id
-  model_names = ImageToText.all.map { |model| model.name }
-  model_ids = ImageToText.all.map { |model| model.id }
+  test "updating the current model to all available models" do
+    # collect all available model names by id
+    model_names = ImageToText.all.map { |model| model.name }
+    model_ids = ImageToText.all.map { |model| model.id }
 
-  # log all model names
-  puts "Model names: #{model_names}"
+    # iterate through names by index
+    model_names.each_with_index do |model_name, index|
+      visit settings_image_to_texts_url
 
-  # iterate through all available models and select / save each
-  model_names.each_with_index do |model_name, index|
-    test "updating the current model to #{model_name}" do
-      visit image_to_texts_url
-      # click on <input> with id = index
-      find("input[id='#{model_ids[index]}']").click
+      # assert not selected
+      assert find("input[id='#{model_ids[index]}']", visible: :all).checked? == false
 
-      # click on "Save"
-      click_on "Save"
-      assert_text "Current model set to: #{model_name}"
+      # toggle on <input> with id = index visible all
+      find("label[for='#{model_ids[index]}']", visible: :all).click
+
+      # assert that toggle is now on
+      assert find("input[id='#{model_ids[index]}']", visible: :all).checked?
+
+      # assert all other toggles are off
+      model_ids.each_with_index do |id, i|
+        if i != index
+          assert find("input[id='#{id}']", visible: :all).checked? == false
+        end
+      end
     end
   end
-
 end
