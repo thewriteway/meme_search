@@ -49,6 +49,9 @@ class ImageCoresController < ApplicationController
       @image_core.status = 1
       @image_core.save
 
+      # get current model
+      current_model = ImageToText.find_by(current: true)
+
       # send request
       begin # For local / native metal testing
         uri = URI("http://#{ENV['APP_HOST']}:#{ENV['GEN_PORT']}/add_job")
@@ -57,7 +60,7 @@ class ImageCoresController < ApplicationController
         # Try to make a request to the first URI
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
-        data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name }
+        data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
         request.body = data.to_json
         response = http.request(request)
       rescue => e # For compose runner (when app run in docker network)
@@ -71,7 +74,7 @@ class ImageCoresController < ApplicationController
         # Try to make a request to the backup URI
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
-        data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name }
+        data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
         request.body = data.to_json
         response = http.request(request)
       end
@@ -81,7 +84,7 @@ class ImageCoresController < ApplicationController
           # flash[:notice] = "Image added to queue for automatic description generation."
           # format.html { redirect_back_or_to root_path }
         else
-          flash[:alert] = "Cannot generate description, your model is offline!"
+          flash[:alert] = "Cannot generate description, your image to text genertaor is offline!"
           format.html { redirect_back_or_to root_path }
         end
       end

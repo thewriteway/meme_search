@@ -102,15 +102,57 @@ jobs:
           working-directory: ./meme_search_pro/meme_search_app
 
       - name: Install dependencies
-        run: gem install bundler && bundle install
+        run: gem install bundler && bundle install && bundle exec rake assets:precompile
         working-directory: ./meme_search_pro/meme_search_app
 
-      - name: Run tests
+      - name: Prepare database for tests
         working-directory: ./meme_search_pro/meme_search_app
         env:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432
-        run: bin/rails db:test:prepare test test:system
+        run: bin/rails db:test:prepare
+
+      - name: Run image cores system test
+        working-directory: ./meme_search_pro/meme_search_app
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+        run: bin/rails test test/system/image_cores_test.rb
+
+      - name: Run image paths test
+        working-directory: ./meme_search_pro/meme_search_app
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+        run: bin/rails test test/system/image_paths_test.rb
+
+      - name: Run image to texts system test
+        working-directory: ./meme_search_pro/meme_search_app
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+        run: bin/rails test test/system/image_to_texts_test.rb
+
+      - name: Run index filter test
+        working-directory: ./meme_search_pro/meme_search_app
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+        run: bin/rails test test/system/index_filter_test.rb
+
+      - name: Run search test
+        working-directory: ./meme_search_pro/meme_search_app
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+        run: bin/rails test test/system/search_test.rb
+
+      - name: Run tag names test
+        working-directory: ./meme_search_pro/meme_search_app
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+        run: bin/rails test test/system/tag_names_test.rb
 
       - name: Keep screenshots from failed system tests
         uses: actions/upload-artifact@v4

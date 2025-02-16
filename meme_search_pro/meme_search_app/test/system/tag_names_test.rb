@@ -10,6 +10,7 @@ class TagNamesTest < ApplicationSystemTestCase
     assert_selector "ul#navigation" do
       assert_selector "li#settings" do
         click_on "Settings"
+        sleep(0.5)
         assert_selector "div", text: "Tags"
         click_on "Tags"
         sleep(0.5)

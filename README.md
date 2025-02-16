@@ -325,7 +325,7 @@ bundle install
 Tests can then be run as
 
 ```sh
-rails test test/system
+bash run_tests.sh
 ```
 
 When doing this ensure you have an available Postgres instance running locally on port `5432`.

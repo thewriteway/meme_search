@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2024_10_22_170426) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_16_131509) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -48,6 +48,15 @@ ActiveRecord::Schema[7.2].define(version: 2024_10_22_170426) do
     t.datetime "updated_at", null: false
     t.index ["image_core_id"], name: "index_image_tags_on_image_core_id"
     t.index ["tag_name_id"], name: "index_image_tags_on_tag_name_id"
+  end
+
+  create_table "image_to_texts", force: :cascade do |t|
+    t.string "name"
+    t.string "resource"
+    t.string "description"
+    t.boolean "current", default: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "tag_names", force: :cascade do |t|

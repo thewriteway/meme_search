@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resources :image_to_texts
   resources :image_embeddings
   resources :image_tags
 
@@ -6,6 +7,11 @@ Rails.application.routes.draw do
   namespace :settings do
     resources :tag_names
     resources :image_paths
+    resources :image_to_texts do
+    collection do
+      post :update_current
+    end
+  end
   end
 
   resources :image_cores do
