@@ -1,4 +1,5 @@
 <div class="w-full">
+    <h1 class="font-bold text-4xl mb-2 border border-b-2 border-t-0 border-r-0 border-l-0 border-black dark:border-white">Available models</h1>
 
   <% content_for :title, "Image to text models" %>
 
@@ -9,23 +10,22 @@
         <!-- Name & Description Column -->
         <div class="flex-1">
           <p class="text-lg font-semibold text-black dark:text-white"><%= image_to_text.name %></p>
-          <p class="text-gray-600"><%= image_to_text.description %></p>
+          <p class="text-gray-600"><%= image_to_text.description %>&nbsp; <a href="<%= image_to_text.resource %>" target="_blank" class="text-blue-600">Click here to learn more.</a> </p>
         </div>
 
-        <!-- Toggle Switch for Current -->
-        
-           <!--       <input type="checkbox" name="current_id" value="<%#= image_to_text.id %>"
-                        class="hidden peer" <%#= 'checked' if image_to_text.current %>
-                        onchange="toggleCurrent(this)">
-                  <div class="w-14 h-8 bg-gray-300 rounded-full relative transition-colors duration-300 peer-checked:bg-blue-500">
-                    <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 peer-checked:translate-x-6"></div>
-                  </div>-->
+        <div data-controller="toggle">
+          <input type="checkbox" class="hidden peer sr-only opacity-0"
+                id="<%= image_to_text.id %>"
+                value="<%= image_to_text.id %>"
+                name="current_id"
+                <%= 'checked' if image_to_text.current %>
+                data-action="change->toggle#toggle">
+          <label class="relative flex h-6 w-11 cursor-pointer items-center rounded-full bg-gray-400 px-0.5 outline-gray-400 transition-colors before:h-5 before:w-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:duration-300 peer-checked:bg-green-500 peer-checked:before:translate-x-full peer-focus-visible:outline peer-focus-visible:outline-offset-2 peer-focus-visible:outline-gray-400 peer-checked:peer-focus-visible:outline-green-500"
+                for="<%= image_to_text.id %>">
+            <span class="sr-only">Enable</span>
+          </label>
+        </div>
 
-        <input type="checkbox" class="hidden peer sr-only opacity-0" id="<%= image_to_text.id %>" value="<%= image_to_text.id %>" name="current_id"
-                  <%= 'checked' if image_to_text.current %> onchange="toggleCurrent(this)">
-        <label class="relative flex h-6 w-11 cursor-pointer items-center rounded-full bg-gray-400 px-0.5 outline-gray-400 transition-colors before:h-5 before:w-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:duration-300 peer-checked:bg-green-500 peer-checked:before:translate-x-full peer-focus-visible:outline peer-focus-visible:outline-offset-2 peer-focus-visible:outline-gray-400 peer-checked:peer-focus-visible:outline-green-500" for="<%= image_to_text.id %>">
-              <span class="sr-only">Enable</span>
-        </label>
 
       </div>
     <% end %>
@@ -40,14 +40,3 @@
 </div>
 
 
-<script>
-  function toggleCurrent(selectedRadio) {
-    document.querySelectorAll('input[name="current_id"]').forEach(radio => {
-      if (radio !== selectedRadio) {
-        setTimeout(() => {
-          radio.checked = false; // Delay ensures smooth animation
-        }, 10);
-      }
-    });
-  }
-</script>
