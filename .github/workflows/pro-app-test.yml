@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "meme_search_pro/meme_search_app/**"
+      - ".github/workflows/pro-app-test.yml"
 
 jobs:
   pro_app_ruby_check:
@@ -22,8 +23,10 @@ jobs:
           working-directory: ./meme_search_pro/meme_search_app
 
       - name: Install dependencies
-        run: gem install bundler && bundle install --deployment
+        run: gem install bundler && bundle install
         working-directory: ./meme_search_pro/meme_search_app
+        env:
+          BUNDLE_PATH: vendor/bundle
 
       - name: Scan for common Rails security vulnerabilities using static analysis
         run: bin/brakeman -w3 --no-pager
