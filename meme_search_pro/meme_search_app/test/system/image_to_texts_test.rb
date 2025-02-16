@@ -1,43 +1,29 @@
 require "application_system_test_case"
 
 class ImageToTextsTest < ApplicationSystemTestCase
-  setup do
-    @image_to_text = image_to_texts(:one)
-  end
-
   test "visiting the index" do
-    visit image_to_texts_url
-    assert_selector "h1", text: "Image to texts"
+    visit settings_image_to_texts_url
+    assert_selector "h1", text: "Available models"
   end
 
-  test "should create image to text" do
-    visit image_to_texts_url
-    click_on "New image to text"
+  # collect all available model names by id
+  model_names = ImageToText.all.map { |model| model.name }
+  model_ids = ImageToText.all.map { |model| model.id }
 
-    fill_in "Description", with: @image_to_text.description
-    fill_in "Name", with: @image_to_text.name
-    click_on "Create Image to text"
+  # log all model names
+  puts "Model names: #{model_names}"
 
-    assert_text "Image to text was successfully created"
-    click_on "Back"
+  # iterate through all available models and select / save each
+  model_names.each_with_index do |model_name, index|
+    test "updating the current model to #{model_name}" do
+      visit image_to_texts_url
+      # click on <input> with id = index
+      find("input[id='#{model_ids[index]}']").click
+
+      # click on "Save"
+      click_on "Save"
+      assert_text "Current model set to: #{model_name}"
+    end
   end
 
-  test "should update Image to text" do
-    visit image_to_text_url(@image_to_text)
-    click_on "Edit this image to text", match: :first
-
-    fill_in "Description", with: @image_to_text.description
-    fill_in "Name", with: @image_to_text.name
-    click_on "Update Image to text"
-
-    assert_text "Image to text was successfully updated"
-    click_on "Back"
-  end
-
-  test "should destroy Image to text" do
-    visit image_to_text_url(@image_to_text)
-    click_on "Destroy this image to text", match: :first
-
-    assert_text "Image to text was successfully destroyed"
-  end
 end

@@ -59,11 +59,11 @@ third_meme.update({ image_tags_attributes: [ { tag_name: tag_two } ] })
 available_models = ["Florence-2-base", "Florence-2-large", "SmolVLM-256M-Instruct", "SmolVLM-500M-Instruct",  "moondream2"]
 resources = ["https://huggingface.co/microsoft/Florence-2-base", "https://huggingface.co/microsoft/Florence-2-large", "https://huggingface.co/collections/HuggingFaceTB/smolvlm-256m-and-500m-6791fafc5bb0ab8acc960fb0", "https://huggingface.co/collections/HuggingFaceTB/smolvlm-256m-and-500m-6791fafc5bb0ab8acc960fb0", "https://huggingface.co/vikhyatk/moondream2"]
 descriptions = [
-  'a popular series of small vision language models built by Microsoft, including a 250 Million (base) and a 700 Million (large) parameter variant.',
-  'the 700 Million parameter vision language model variant of the Florence-2 series.',
-  'a 256 Million parameter vision language model built by Hugging Face.',
-  'a 500 Million parameter vision language model built by Hugging Face.',
-  'a 2 Billion parameter vision language model used for image captioning / extracting image text.']
+  'A popular series of small vision language models built by Microsoft, including a 250 Million (base) and a 700 Million (large) parameter variant.',
+  'The 700 Million parameter vision language model variant of the Florence-2 series.',
+  'A 256 Million parameter vision language model built by Hugging Face.',
+  'A 500 Million parameter vision language model built by Hugging Face.',
+  'A 2 Billion parameter vision language model used for image captioning / extracting image text.']
 
 available_models.each_with_index do |model_name, index|
   model = ImageToText.new({ name: model_name, resource: resources[index], description: descriptions[index], current: index != 0 ? false : true})
