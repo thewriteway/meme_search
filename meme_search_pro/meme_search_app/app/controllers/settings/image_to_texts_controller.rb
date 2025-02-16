@@ -18,11 +18,14 @@ module Settings
         ImageToText.find(params[:current_id]).update(current: true)
       end
 
+      # Get name of the current model
+      current_model = ImageToText.find_by(current: true).name
+
       # puts all image_to_texts
       puts ImageToText.all
 
       respond_to do |format|
-        flash = { notice: "Current selected model updated!" }
+        flash = { notice: "Current model set to: #{current_model}" }
         format.html { redirect_to [ :settings, :image_to_texts ], flash: flash }
       end
     end

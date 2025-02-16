@@ -1,10 +1,6 @@
 <div class="w-full">
-  <% if notice.present? %>
-    <p class="py-2 px-3 bg-green-50 mb-5 text-green-500 font-medium rounded-lg inline-block" id="notice"><%= notice %></p>
-  <% end %>
 
   <% content_for :title, "Image to text models" %>
-
 
   <div id="image_to_texts" class="min-w-full">
   <%= form_with url: update_current_settings_image_to_texts_path, method: :post, remote: true, id: "current-form" do %>
@@ -12,18 +8,25 @@
       <div class="flex flex-row items-center p-4 border-b">
         <!-- Name & Description Column -->
         <div class="flex-1">
-          <p class="text-lg font-semibold text-black"><%= image_to_text.name %></p>
+          <p class="text-lg font-semibold text-black dark:text-white"><%= image_to_text.name %></p>
           <p class="text-gray-600"><%= image_to_text.description %></p>
         </div>
 
         <!-- Toggle Switch for Current -->
-        <div class="ml-4">
-          <label class="switch">
-            <input type="radio" name="current_id" value="<%= image_to_text.id %>" 
+        
+           <!--       <input type="checkbox" name="current_id" value="<%#= image_to_text.id %>"
+                        class="hidden peer" <%#= 'checked' if image_to_text.current %>
+                        onchange="toggleCurrent(this)">
+                  <div class="w-14 h-8 bg-gray-300 rounded-full relative transition-colors duration-300 peer-checked:bg-blue-500">
+                    <div class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 peer-checked:translate-x-6"></div>
+                  </div>-->
+
+        <input type="checkbox" class="hidden peer sr-only opacity-0" id="<%= image_to_text.id %>" value="<%= image_to_text.id %>" name="current_id"
                   <%= 'checked' if image_to_text.current %> onchange="toggleCurrent(this)">
-            <span class="slider round"></span>
-          </label>
-        </div>
+        <label class="relative flex h-6 w-11 cursor-pointer items-center rounded-full bg-gray-400 px-0.5 outline-gray-400 transition-colors before:h-5 before:w-5 before:rounded-full before:bg-white before:shadow before:transition-transform before:duration-300 peer-checked:bg-green-500 peer-checked:before:translate-x-full peer-focus-visible:outline peer-focus-visible:outline-offset-2 peer-focus-visible:outline-gray-400 peer-checked:peer-focus-visible:outline-green-500" for="<%= image_to_text.id %>">
+              <span class="sr-only">Enable</span>
+        </label>
+
       </div>
     <% end %>
 
@@ -39,9 +42,12 @@
 
 <script>
   function toggleCurrent(selectedRadio) {
-    // Select all radio buttons with the same name and uncheck others
     document.querySelectorAll('input[name="current_id"]').forEach(radio => {
-      radio.checked = (radio === selectedRadio);
+      if (radio !== selectedRadio) {
+        setTimeout(() => {
+          radio.checked = false; // Delay ensures smooth animation
+        }, 10);
+      }
     });
   }
 </script>
