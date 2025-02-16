@@ -1,6 +1,11 @@
 require "application_system_test_case"
 
 class ImageToTextsTest < ApplicationSystemTestCase
+  setup do
+    @image_to_texts = image_to_texts(:one, :two)
+  end
+
+
   test "visiting the index" do
     visit settings_image_to_texts_url
     assert_selector "h1", text: "Available models"
@@ -8,8 +13,8 @@ class ImageToTextsTest < ApplicationSystemTestCase
 
   test "updating the current model to all available models" do
     # collect all available model names by id
-    model_names = ImageToText.all.map { |model| model.name }
-    model_ids = ImageToText.all.map { |model| model.id }
+    model_names = @image_to_texts.map { |model| model.name }
+    model_ids = @image_to_texts.map { |model| model.id }
 
     # iterate through names by index
     model_names.each_with_index do |model_name, index|
