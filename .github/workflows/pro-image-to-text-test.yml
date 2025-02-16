@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "meme_search_pro/image_to_text_generator/**"
+      - ".github/workflows/pro-image-to-text-test.yml"
 
 jobs:
   image_to_text_lint:
