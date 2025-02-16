@@ -22,7 +22,7 @@ jobs:
           working-directory: ./meme_search_pro/meme_search_app
 
       - name: Install dependencies
-        run: gem install bundler && bundle install
+        run: gem install bundler && bundle install --deployment
         working-directory: ./meme_search_pro/meme_search_app
 
       - name: Scan for common Rails security vulnerabilities using static analysis
