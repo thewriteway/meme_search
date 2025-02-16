@@ -14,7 +14,8 @@ class ImagePathsTest < ApplicationSystemTestCase
     assert_selector "ul#navigation" do
       assert_selector "li#settings" do
         click_on "Settings"
-        assert_selector "div", text: "Paths"
+        sleep(0.5)
+        assert_selector "a", text: "Paths"
         click_on "Paths"
         sleep(0.5)
         assert_selector "h1", text: "Current directory paths"

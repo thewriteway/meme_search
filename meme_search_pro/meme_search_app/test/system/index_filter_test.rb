@@ -17,6 +17,8 @@ class IndexFilterTest < ApplicationSystemTestCase
     # click on "open filters"
     click_on "Open filters"
 
+    sleep(0.5)
+
     # confirm slideover id visible
     assert_selector "div#filters_slideover", visible: true
 
@@ -38,6 +40,8 @@ class IndexFilterTest < ApplicationSystemTestCase
     # click on "open filters"
     click_on "Open filters"
 
+    sleep(0.5)
+
     # confirm slideover id visible
     assert_selector "div#filters_slideover", visible: true
 
@@ -58,6 +62,8 @@ class IndexFilterTest < ApplicationSystemTestCase
 
     # click on "open filters"
     click_on "Open filters"
+
+    sleep(0.5)
 
     # confirm slideover id visible
     assert_selector "div#filters_slideover", visible: true
@@ -83,6 +89,8 @@ class IndexFilterTest < ApplicationSystemTestCase
     # click on "open filters"
     click_on "Open filters"
 
+    sleep(0.5)
+
     # confirm slideover id visible
     assert_selector "div#filters_slideover", visible: true
 
@@ -105,6 +113,7 @@ class IndexFilterTest < ApplicationSystemTestCase
   test "visit root, open filters, (keep) embeddings checked, return and verify changes" do
     # click on "open filters"
     click_on "Open filters"
+    sleep(0.5)
 
     # confirm slideover id visible
     assert_selector "div#filters_slideover", visible: true
@@ -121,6 +130,7 @@ class IndexFilterTest < ApplicationSystemTestCase
   test "visit root, open filters, check one directory path, return and verify changes" do
     # click on "open filters"
     click_on "Open filters"
+    sleep(0.5)
 
     # confirm slideover id visible
     assert_selector "div#filters_slideover", visible: true
