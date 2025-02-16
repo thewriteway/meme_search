@@ -4,7 +4,7 @@ class CreateImageToTexts < ActiveRecord::Migration[7.2]
       t.string :name
       t.string :resource
       t.string :description
-      t.boolean :current , default: false
+      t.boolean :current, default: false
 
       t.timestamps
     end
