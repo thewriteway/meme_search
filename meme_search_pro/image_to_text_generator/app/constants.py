@@ -9,4 +9,4 @@ JOB_DB = "/app/db/job_queue.db"
 
 # model constants
 default_model = "Florence-2-base"
-available_models = ["test", default_model, "Florence-2-base", "Florence-2-large", "SmolVLM-256M-Instruct", "SmolVLM-500M-Instruct",  "moondream2"]
+available_models = ["test", default_model, "Florence-2-large", "SmolVLM-256M-Instruct", "SmolVLM-500M-Instruct",  "moondream2"]

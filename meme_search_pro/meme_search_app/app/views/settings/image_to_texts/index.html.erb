@@ -1,0 +1,48 @@
+<div class="w-full">
+  <% if notice.present? %>
+    <p class="py-2 px-3 bg-green-50 mb-5 text-green-500 font-medium rounded-lg inline-block" id="notice"><%= notice %></p>
+  <% end %>
+
+  <% content_for :title, "Image to text models" %>
+
+
+  <div id="image_to_texts" class="min-w-full">
+                     
+  <%= form_with url: update_current_settings_image_to_texts_path, method: :post, remote: true, id: "current-form" do %>
+    <% @image_to_texts.each do |image_to_text| %>
+      <div class="flex flex-row items-center p-4 border-b">
+        <!-- Name & Description Column -->
+        <div class="flex-1">
+          <p class="text-lg font-semibold text-black"><%= image_to_text.name %></p>
+          <p class="text-gray-600"><%= image_to_text.description %></p>
+        </div>
+
+        <!-- Toggle Switch for Current -->
+        <div class="ml-4">
+          <label class="switch">
+            <input type="radio" name="current_id" value="<%= image_to_text.id %>" 
+                  <%= 'checked' if image_to_text.current %> onchange="toggleCurrent(this)">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+    <% end %>
+
+    <!-- Save Button -->
+    <div class="mt-4">
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
+    </div>
+  <% end %>
+
+  </div>
+</div>
+
+
+<script>
+  function toggleCurrent(selectedRadio) {
+    // Select all radio buttons with the same name and uncheck others
+    document.querySelectorAll('input[name="current_id"]').forEach(radio => {
+      radio.checked = (radio === selectedRadio);
+    });
+  }
+</script>

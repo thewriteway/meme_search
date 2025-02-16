@@ -53,3 +53,18 @@ fourth_meme = current_imgs[3]
 first_meme.update({ image_tags_attributes: [ { tag_name: tag_one } ] })
 second_meme.update({ image_tags_attributes: [ { tag_name: tag_one }, { tag_name: tag_two } ] })
 third_meme.update({ image_tags_attributes: [ { tag_name: tag_two } ] })
+
+
+# instantiate current image_to_text models
+available_models = ["Florence-2-base", "Florence-2-large", "SmolVLM-256M-Instruct", "SmolVLM-500M-Instruct",  "moondream2"]
+descriptions = [
+  'a popular series of small vision language models built by Microsoft, including a 250 Million (base) and a 700 Million (large) parameter variant.  <a href="https://huggingface.co/microsoft/Florence-2-base" target="_blank">Learn more.</a>',
+  'the 700 Million parameter vision language model variant of the Florence-2 series.  <a href="https://huggingface.co/microsoft/Florence-2-large" target="_blank">Learn more.</a>',
+  'a 256 Million parameter vision language model built by Hugging Face.  <a href="https://huggingface.co/collections/HuggingFaceTB/smolvlm-256m-and-500m-6791fafc5bb0ab8acc960fb0" target="_blank">Learn more.</a>',
+  'a 500 Million parameter vision language model built by Hugging Face.  <a href="https://huggingface.co/collections/HuggingFaceTB/smolvlm-256m-and-500m-6791fafc5bb0ab8acc960fb0" target="_blank">Learn more.</a>',
+  'a 2 Billion parameter vision language model used for image captioning / extracting image text.  <a href="https://huggingface.co/vikhyatk/moondream2" target="_blank">Learn more.</a>']
+
+available_models.each_with_index do |model_name, index|
+  model = ImageToText.new({ name: model_name, description: descriptions[index], current: index != 0 ? false : true})
+  model.save!
+end
