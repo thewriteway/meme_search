@@ -2,7 +2,8 @@ module Settings
   class ImageToTextsController < ApplicationController
     # GET /image_to_texts or /image_to_texts.json
     def index
-      @image_to_texts = ImageToText.all
+      # return ordered by id
+      @image_to_texts = ImageToText.order(id: :asc)
     end
 
     def update_current
