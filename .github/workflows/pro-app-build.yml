@@ -50,4 +50,4 @@ jobs:
           context: ./meme_search_pro/meme_search_app
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ghcr.io/neonwatty/meme_search_pro:${{ matrix.platform }}
+          tags: ghcr.io/neonwatty/meme_search_pro:latest
