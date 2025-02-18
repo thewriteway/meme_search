@@ -6,12 +6,14 @@ All notable changes to this project will be documented in this file.
 
 Quality of life updates to the Pro version including:
 
-- image to text new models added: florence-2-base (new default), florence-2-large, smolvlm-256, smolvlm-500
-- updated moondream2 to current revision
-- routing for model-based extraction added
+- you can now [customize hosts names and ports](https://github.com/neonwatty/meme-search/tree/main?tab=readme-ov-file#custom-hosts-and-ports) for easier usage with NAS, Portainer, Unraid, or if you just need to customize! 
+- 4 new image to text new models added ranging in size from 200M to 2B parameters: florence-2-base (new default), florence-2-large, smolvlm-256, smolvlm-500
+- new model selection panel added in the pro app Settings so you select or change your image-to-text model
+- moondream2 to current revision
 - new test database added to image-to-text service for more comprehensive testing
-- image to text server, test model, florence-2-base, and smovlm-256 tests added
-- gh action scripts refactored for easier (local) testing
+- new [local docker compose files added](https://github.com/neonwatty/meme-search/tree/main?tab=readme-ov-file#building-the-app-locally-with-docker) for easier local building and testing
+- gh action test and build scripts refactored for easier (local) testing
+
 
 ## 2025-1-30
 
