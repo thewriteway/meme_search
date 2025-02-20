@@ -15,7 +15,7 @@ A table of contents for the remainder of this README:
 - [Version overall comparison](#version-overall-comparison)
 - [Meme search - standard version](#meme-search---standard-version)
 
-  - [Features](#features---standard-version)
+  - [Features](#features)
   - [Installation instructions](#installation-instructions---standard-version)
   - [Index your memes](#index-your-memes---standard-version)
   - [Pipeline overview](#pipeline-overview---standard-version)
@@ -23,7 +23,7 @@ A table of contents for the remainder of this README:
 
 - [Meme search - pro version](#meme-search---pro-version)
 
-  - [Features](#features)
+  - [Features](#features---pro-version)
   - [Installation instructions](#installation-instructions---pro-version)
   - [Time to first generation / downloading models](#time-to-first-generation--downloading-models)
   - [Index your memes](#index-your-memes---pro-version)
