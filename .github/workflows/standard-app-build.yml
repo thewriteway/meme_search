@@ -1,10 +1,7 @@
 name: "Standard App Build"
 
 on:
-  # workflow_dispatch:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 jobs:
   standard_app_build:
