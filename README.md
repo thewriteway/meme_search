@@ -8,7 +8,7 @@ All processing - from image-to-text extraction, to vector embedding, to search -
 <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-pro-search-example.gif" height="325">
 </p>
 
-This repository contains code, a walkthrough notebook (`meme_search_walkthrough.ipynb`), and apps for indexing, searching, and easily retrieving your memes based on semantic search of their content and text.
+This repository contains code, a walkthrough notebook, and apps for indexing, searching, and easily retrieving your memes based on semantic search of their content and text.
 
 A table of contents for the remainder of this README:
 
@@ -131,7 +131,7 @@ This meme search pipeline is written in pure Python and is built using the follo
 - [sqlite](https://sqlite.org/): the greatest database of all time, used for data indexing
 - [streamlit](https://github.com/streamlit/streamlit): for serving up the app
 
-The notebook linked to here <a href="https://colab.research.google.com/github/jermwatt/meme_search/blob/main/meme_search_walkthrough.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> walks through the whole process! You can also watch an overview of this walkthrough by clicking here <a href="https://www.youtube.com/watch?v=P1k1EGvoJIg" target="_parent"><img src="https://badges.aleen42.com/src/youtube.svg" alt="Youtube"/></a>.
+The notebook linked to here <a href="https://colab.research.google.com/github/neonwatty/meme_search/blob/notebook-walkthrough/meme_search_walkthrough.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> walks through the whole process! You can also watch an overview of this walkthrough by clicking here <a href="https://www.youtube.com/watch?v=P1k1EGvoJIg" target="_parent"><img src="https://badges.aleen42.com/src/youtube.svg" alt="Youtube"/></a>.
 
 ### Running tests - standard version
 
