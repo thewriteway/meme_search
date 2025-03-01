@@ -257,17 +257,30 @@ With the pro version you can index your memes by creating your own descriptions,
 
 <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-generate-example.gif" height="225">
 
-To start indexing your own memes, first adjust the [pro version compose file](https://github.com/neonwatty/meme-search/blob/main/docker-compose-pro.yml) by adding `volume` mount to the `meme_search_pro` service to properly connect your local meme subdirectory to the app.
+To start indexing your own memes, first adjust the [pro version compose file](https://github.com/neonwatty/meme-search/blob/main/docker-compose-pro.yml) by adding `volume` mount to the `meme_search_pro` and `image_to_text_generator` services to properly connect your local meme subdirectory to the app.
 
 For example, if suppose (one of your) meme directories was called `new_memes` and was located at the following path on your machine: `/local/path/to/my/memes/new_memes`.
 
-To properly mount this subdirectory to the pro meme search service adjust the `volumes` portion of its configuration to the following:
+To properly mount this subdirectory to the `meme_search_pro` service adjust the `volumes` portion of its configuration to the following:
 
 ```yaml
 volumes: # <-- any additional meme directory must be mounted here
   - ./meme_search_pro/memes/:/rails/public/memes # <-- example meme directories
-  - /local/path/to/my/memes/new_memes:/rails/public/memes/new_memes # <--- your memes subdirectory is mounted here!
+  - /local/path/to/my/memes/new_memes:/rails/public/new_memes # <--- your memes subdirectory is mounted here!
 ```
+
+Note: your `new_memes` directory must be mounted internally in the `/rails/public` directory, as shown above.
+
+To properly mount this subdirectory to the `image_to_text_generator` service adjust the `volumes` portion of its configuration to the following:
+
+```yaml
+volumes: # <-- any additional meme directory must be mounted here
+  - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directories
+  - /local/path/to/my/memes/new_memes:/app/public/new_memes # <--- your memes subdirectory is mounted here!
+...
+```
+
+Note: your `new_memes` directory must be mounted internally in the `/app/public` directory, as shown above.
 
 Now restart the app, and register the `new_memes` via the UX by traversing to the `settings -> paths -> create new` as illustrated below.
 
