@@ -17,8 +17,9 @@ services:
     depends_on:
       meme_search_db:
         condition: service_healthy
-    volumes: # <-- any additional meme directory must be mounted here
-      - ./meme_search_pro/memes/:/rails/public/memes # <-- example meme directories
+    volumes: # <-- any additional meme directory must be mounted here - and placed in the /rails/public/memes directory in the container (see example below)
+      - ./meme_search_pro/memes/:/rails/public/memes # <-- example meme directory from the repository
+      # -  /route/to/my/personal/additional_memes/:/rails/public/memes/additional_memes # <-- personal meme collection - must be placed inside /rails/public/memes in the container
 
   image_to_text_generator:
     build:
@@ -32,8 +33,9 @@ services:
       DOCKER_HOST_INTERNAL: "${DOCKER_HOST_INTERNAL:-host.docker.internal}"
     ports:
       - "${GEN_PORT:-8000}:8000" # <--  adjust to desired local port for this service in your .env file)"
-    volumes: # <-- any additional meme directory must be mounted here
-      - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directories
+    volumes: # <-- any additional meme directory must be mounted here - and placed in the /app/public/memes directory in the container (see example below)
+      - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directory from the repository
+      # -  /route/to/my/personal/additional_memes/:/app/public/memes/additional_memes # <-- personal meme collection - must be placed inside /app/public/memes in the container
       - ./meme_search_pro/db_data/image_to_text_generator:/app/db
       - ./meme_search_pro/models:/root/.cache/huggingface
     deploy:
