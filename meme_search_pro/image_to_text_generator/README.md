@@ -25,3 +25,11 @@ python app/app.py 'testing'
 ```
 
 This adjusts the location of the job queue database to `/tests/db/job_queue.db`.
+
+# Running tests
+
+You can run the current suite of tests for the image to text generator by running
+
+```bash
+pytest tests/test_app.py
+```

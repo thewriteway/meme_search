@@ -41,7 +41,7 @@ class SearchTest < ApplicationSystemTestCase
   end
 
   test "keyword search, tag filter allowed" do
-    # select tag one
+    # select tag one with id tag_toggle
     assert_selector "div#tag_toggle", visible: true
     find("#tag_toggle").click
     find("#tag_1").check

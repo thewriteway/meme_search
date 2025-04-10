@@ -53,31 +53,15 @@ class ImageCoresController < ApplicationController
       current_model = ImageToText.find_by(current: true)
 
       # send request
-      begin # For local / native metal testing
-        uri = URI("http://#{ENV['APP_HOST']}:#{ENV['GEN_PORT']}/add_job")
-        http = Net::HTTP.new(uri.host, uri.port)
+      uri = URI("http://image_to_text_generator:8000/add_job")
+      http = Net::HTTP.new(uri.host, uri.port)
 
-        # Try to make a request to the first URI
-        request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
-        data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
-        request.body = data.to_json
-        response = http.request(request)
-      rescue => e # For compose runner (when app run in docker network)
-        # If the connection fails, use the backup URI
-        puts "Failed to connect to local host at #{ENV['APP_HOST']}:#{ENV['GEN_PORT']}, failed with error: #{e}"
-        puts "Trying to connect to image_to_text_generator service directly"
-
-        uri = URI("http://image_to_text_generator:8000/add_job")
-        http = Net::HTTP.new(uri.host, uri.port)
-
-        # Try to make a request to the backup URI
-        request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
-        data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
-        request.body = data.to_json
-        response = http.request(request)
-      end
+      # Try to make a request to the first URI
+      request = Net::HTTP::Post.new(uri)
+      request["Content-Type"] = "application/json"
+      data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
+      request.body = data.to_json
+      response = http.request(request)
 
       respond_to do |format|
         if response.is_a?(Net::HTTPSuccess)
@@ -108,25 +92,13 @@ class ImageCoresController < ApplicationController
       @image_core.save!
 
       # send request
-      begin # For local / native metal testing
-        uri = URI.parse("http://#{ENV['APP_HOST']}:#{ENV['GEN_PORT']}/remove_job/#{@image_core.id}")
-        http = Net::HTTP.new(uri.host, uri.port)
+      uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
+      http = Net::HTTP.new(uri.host, uri.port)
 
-        # Try to make a request to the first URI
-        request = Net::HTTP::Delete.new(uri.request_uri)
-        request["Content-Type"] = "application/json"
-        response = http.request(request)
-
-      rescue => e  # For compose runner (when app run in docker network)
-        # If the connection fails, use the backup URI
-        uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
-        http = Net::HTTP.new(uri.host, uri.port)
-
-        # Try to make a request to the first URI
-        request = Net::HTTP::Delete.new(uri.request_uri)
-        request["Content-Type"] = "application/json"
-        response = http.request(request)
-      end
+      # Try to make a request to the first URI
+      request = Net::HTTP::Delete.new(uri.request_uri)
+      request["Content-Type"] = "application/json"
+      response = http.request(request)
 
       respond_to do |format|
         if response.is_a?(Net::HTTPSuccess)

@@ -4,12 +4,8 @@ services:
   meme_search_pro:
     image: ghcr.io/neonwatty/meme_search_pro:latest
     container_name: meme_search_pro
-    environment: # <-- you can adjust these values in your .env file
-      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:${DB_PORT:-5432}/meme_search"
-      APP_HOST: "${APP_HOST:-localhost}"
-      APP_PORT: "${APP_PORT:-3000}"
-      GEN_PORT: "${GEN_PORT:-8000}"
-      DOCKER_HOST_INTERNAL: "${DOCKER_HOST_INTERNAL:-host.docker.internal}"
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:5432/meme_search"
     ports:
       - "${APP_PORT:-3000}:3000" # <--  adjust to desired local port for this service in your .env file
     depends_on:
@@ -23,13 +19,10 @@ services:
   image_to_text_generator:
     image: ghcr.io/neonwatty/image_to_text_generator:latest
     container_name: image_to_text_generator
-    environment: # <-- you can adjust these values in your .env file
-      APP_HOST: "${APP_HOST:-localhost}"
+    environment:
       APP_PORT: "${APP_PORT:-3000}"
-      GEN_PORT: "${GEN_PORT:-8000}"
-      DOCKER_HOST_INTERNAL: "${DOCKER_HOST_INTERNAL:-host.docker.internal}"
-    ports:
-      - "${GEN_PORT:-8000}:8000" # <--  adjust to desired local port for this service in your .env file)"
+    expose:
+      - "8000"
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /app/public/memes directory in the container (see example below)
       - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directory from the repository
       # -  /route/to/my/personal/additional_memes/:/app/public/memes/additional_memes # <-- personal meme collection - must be placed inside /app/public/memes in the container
@@ -54,8 +47,8 @@ services:
       POSTGRES_DB: meme_search
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "${DB_PORT:-5432}:5432" # <--  adjust to desired local port for this service in your .env file
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
