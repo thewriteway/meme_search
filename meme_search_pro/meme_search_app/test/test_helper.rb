@@ -5,7 +5,7 @@ require "rails/test_help"
 module ActiveSupport
   class TestCase
     # Run tests in parallel with specified workers - 1 worker
-    parallelize(workers: 1)
+    # parallelize(workers: 1)
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all

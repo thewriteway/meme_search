@@ -190,7 +190,7 @@ def test_processing_florence_base():
         # Tail dummy server logs
         time.sleep(60)
         app_logs = ""
-        for _ in range(40):
+        for _ in range(200):
             logline = app_process.stderr.readline().strip()
             if isinstance(logline, str):
                 app_logs += logline
