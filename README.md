@@ -18,7 +18,7 @@ A table of contents for the remainder of this README:
   - [Installation instructions](#installation-instructions)
   - [Time to first generation / downloading models](#time-to-first-generation--downloading-models)
   - [Index your memes](#index-your-memes)
-  - [Custom hosts and ports](#custom-hosts-and-ports)
+  - [Custom app port](#custom-app-port)
   - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests)
 
@@ -165,21 +165,17 @@ Once registered in the app, your memes are ready for indexing / tagging / etc.,!
 
 The image-to-text models used to auto generate descriptions for your memes are all open source, and vary in size.
 
-### Custom hosts and ports
+### Custom app port
 
-Easily customize the app's hosts and ports to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default ports.
+Easily customize the app's port to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default `meme_search_pro` app port `3000`.
 
-To customize the hosts and ports create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
+To customize the main app port create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
 
 ```sh
-APP_HOST= # the host for the app - defaults to localhost
 APP_PORT= # the port for the app - defaults to 3000
-GEN_PORT= # the port for the image to text generator - defaults to 8000
-DB_PORT= # the port for the database - defaults to 5432
-DOCKER_HOST_INTERNAL= # the internal host for docker - defaults to host.docker.internal
 ```
 
-These values are automatically detected and loaded into each service via the `docker-compose-pro.yml` file.
+This value is automatically detected and loaded into each service via the `docker-compose-pro.yml` file.
 
 ### Building the app locally with Docker
 
