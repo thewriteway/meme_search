@@ -188,9 +188,9 @@ def test_processing_florence_base():
         assert response.json() == {"queue_length": 1}, "Queue length is not 1"
 
         # Tail dummy server logs
-        time.sleep(80)
+        time.sleep(60)
         app_logs = ""
-        for _ in range(40):
+        for _ in range(300):
             logline = app_process.stderr.readline().strip()
             if isinstance(logline, str):
                 app_logs += logline
