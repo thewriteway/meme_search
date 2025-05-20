@@ -4,9 +4,12 @@ Use AI to index your memes by their content and text, making them easily retriev
 
 All processing - from image-to-text extraction, to vector embedding, to search - is performed locally.
 
-<p align="center">
-<img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-pro-search-example.gif" height="325">
-</p>
+Click below to watch a demo! 👇
+
+[![Polarize demo](https://img.youtube.com/vi/weL3IBHZpUs/maxresdefault.jpg)](https://youtu.be/weL3IBHZpUs)
+
+### [Watch this video on YouTube](https://youtu.be/weL3IBHZpUs)
+
 
 This repository contains code, a walkthrough notebook, and apps for indexing, searching, and easily retrieving your memes based on semantic search of their content and text.
 
