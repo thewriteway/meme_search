@@ -1,16 +1,16 @@
-# A Meme Search Engine built to self-host in Python, Ruby, and Docker
+# A Meme Search Engine built to self-host in Python, Ruby, and Docker 
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?style=flat&logo=discord&logoColor=white)](https://discord.com/invite/8EUxqR93)
 
 Use AI to index your memes by their content and text, making them easily retrievable for your meme warfare pleasures.
 
 All processing - from image-to-text extraction, to vector embedding, to search - is performed locally.
 
-Click below to watch a demo! 👇
-
-[![Polarize demo](https://img.youtube.com/vi/weL3IBHZpUs/maxresdefault.jpg)](https://youtu.be/weL3IBHZpUs)
-
-### [Watch this video on YouTube](https://youtu.be/weL3IBHZpUs)
-
-
+  <p align="center">
+    <img src="https://github.com/user-attachments/assets/0529764f-a009-4e17-8947-63c7c96075a5"
+  alt="meme-search-2.0-demo">
+  </p>
+  
 This repository contains code, a walkthrough notebook, and apps for indexing, searching, and easily retrieving your memes based on semantic search of their content and text.
 
 A table of contents for the remainder of this README:
@@ -18,13 +18,14 @@ A table of contents for the remainder of this README:
 - [Meme search](#meme-search)
 
   - [Features](#features)
+  - [Requirements](#requirements)
   - [Installation instructions](#installation-instructions)
   - [Time to first generation / downloading models](#time-to-first-generation--downloading-models)
   - [Index your memes](#index-your-memes)
   - [Custom app port](#custom-app-port)
   - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests)
-
+- [Discord server](#discord-server)
 - [Changelog](#changelog)
 - [Feature requests and contributing](#feature-requests-and-contributing)
 
@@ -51,6 +52,30 @@ A table of contents for the remainder of this README:
       <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-generate-example.gif" height="225">
       <figcaption>Generate</figcaption>
     </figure>
+    <figure>
+      <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-2.0-bulk.gif" height="225">
+      <figcaption>Bulk Generation</figcaption>
+    </figure>
+    <figure>
+      <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-2.0-dark-mode.gif" height="225">
+      <figcaption>Dark Mode</figcaption>
+    </figure>
+    <figure>
+      <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-2.0-rescan.png" height="225">
+      <figcaption>Rescan</figcaption>
+    </figure>
+    <figure>
+      <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-2.0-rescan-show.png" height="225">
+      <figcaption>Rescan Status</figcaption>
+    </figure>
+    <figure>
+      <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-2.0-rescan-options.png" height="225">
+      <figcaption>Rescan Options</figcaption>
+    </figure>
+    <figure>
+      <img align="center" src="https://github.com/neonwatty/readme_gifs/blob/main/uploads-trimmed.gif" height="225">
+      <figcaption>Drag-and-Drop Upload</figcaption>
+    </figure>
   </div>
 </p>
 
@@ -67,6 +92,7 @@ Features of Meme Search include:
    - [SmolVLM-256](https://huggingface.co/collections/HuggingFaceTB/smolvlm-256m-and-500m-6791fafc5bb0ab8acc960fb0) - a 256 Million parameter vision language model built by Hugging Face
    - [SmolVLM-500](https://huggingface.co/collections/HuggingFaceTB/smolvlm-256m-and-500m-6791fafc5bb0ab8acc960fb0) - a 500 Million parameter vision language model built by Hugging Face
    - [Moondream2](https://huggingface.co/vikhyatk/moondream2) - a 2 Billion parameter vision language model used for image captioning / extracting image text
+   - [Moondream2-INT8](https://huggingface.co/vikhyatk/moondream2) - INT8 quantized version of Moondream2 for memory-constrained hardware. Reduces memory from ~5GB to ~1.5-2GB with minimal quality loss. Ideal for CPU-only machines.
 
 2. **Auto-Generate Meme Descriptions**
 
@@ -92,6 +118,36 @@ Features of Meme Search include:
 
    Filter by tags, directory paths, and description embeddings, plus toggle between keyword and vector search for more control.
 
+8. **Bulk Description Generation**
+
+   Generate descriptions for multiple memes at once for faster indexing.
+
+9. **Dark Mode**
+
+   Toggle between light and dark themes for comfortable viewing in any environment.
+
+10. **Directory Rescan**
+
+   Automatically detect and index new memes added to your directories.
+
+11. **Drag-and-Drop Upload**
+
+   Upload memes directly through the web interface with drag-and-drop support. Files are stored in the `direct-uploads` directory (configurable via Docker volume mount) and automatically scanned for indexing. Supports JPG, PNG, and WEBP formats with bulk upload (up to 50 files), real-time progress tracking, and automatic duplicate filename handling.
+
+### Requirements
+
+**For Docker deployment** (recommended):
+- Docker and Docker Compose
+
+**For local development**:
+- Ruby 3.4.2
+- Rails 8.0.4
+- Python 3.12
+- Node.js 20 LTS
+- PostgreSQL 17 with pgvector extension
+
+We recommend using [mise](https://mise.jdx.dev/) for managing Ruby, Python, and Node.js versions. See [CLAUDE.md](CLAUDE.md) for detailed setup instructions.
+
 ### Installation instructions
 
 To start up the app pull this repository and start the server cluster with docker-compose
@@ -106,7 +162,7 @@ This pulls and starts containers for the app, database, and auto description gen
 http://localhost:3000
 ```
 
-To start the app alone pull the repo and cd into the `meme_search/meme_search_pro/meme_search_app`. Once there execute the following to start the app in development mode
+To start the app alone pull the repo and cd into the `meme_search/meme_search/meme_search_app`. Once there execute the following to start the app in development mode
 
 ```sh
 ./bin/dev
@@ -114,7 +170,7 @@ To start the app alone pull the repo and cd into the `meme_search/meme_search_pr
 
 When doing this ensure you have an available Postgres instance running locally on port `5432`.
 
-**Note Linux users:** you may need to add the following `extra_hosts` to your `meme_search_pro` service for inter-container communication
+**Note Linux users:** you may need to add the following `extra_hosts` to your `meme_search` service for inter-container communication
 
 ```sh
 extra_hosts:
@@ -133,15 +189,15 @@ You can index your memes by creating your own descriptions, or by generating des
 
 <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-generate-example.gif" height="225">
 
-To start indexing your own memes, first adjust the [compose file](https://github.com/neonwatty/meme-search/blob/main/docker-compose.yml) by adding `volume` mount to the `meme_search_pro` and `image_to_text_generator` services to properly connect your local meme subdirectory to the app.
+To start indexing your own memes, first adjust the [compose file](https://github.com/neonwatty/meme-search/blob/main/docker-compose.yml) by adding `volume` mount to the `meme_search` and `image_to_text_generator` services to properly connect your local meme subdirectory to the app.
 
 For example, if suppose (one of your) meme directories was called `new_memes` and was located at the following path on your machine: `/local/path/to/my/memes/new_memes`.
 
-To properly mount this subdirectory to the `meme_search_pro` service adjust the `volumes` portion of its configuration to the following:
+To properly mount this subdirectory to the `meme_search` service adjust the `volumes` portion of its configuration to the following:
 
 ```yaml
 volumes:
-  - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directory from the repository
+  - ./meme_search/memes/:/app/public/memes # <-- example meme directory from the repository
   -  /route/to/my/personal/additional_memes/:/rails/public/memes/additional_memes # <-- personal meme collection - must be placed inside /rails/public/memes in the container
 ```
 
@@ -151,7 +207,7 @@ To properly mount this same subdirectory to the `image_to_text_generator` servic
 
 ```yaml
 volumes:
-  - ./meme_search_pro/memes/:/app/public/memes # <-- example meme directory from the repository
+  - ./meme_search/memes/:/app/public/memes # <-- example meme directory from the repository
   -  /route/to/my/personal/additional_memes/:/app/public/memes/additional_memes # <-- personal meme collection - must be placed inside /app/public/memes in the container
 ...
 ```
@@ -170,7 +226,7 @@ The image-to-text models used to auto generate descriptions for your memes are a
 
 ### Custom app port
 
-Easily customize the app's port to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default `meme_search_pro` app port `3000`.
+Easily customize the app's port to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default `meme_search` app port `3000`.
 
 To customize the main app port create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
 
@@ -182,17 +238,25 @@ This value is automatically detected and loaded into each service via the `docke
 
 ### Building the app locally with Docker
 
+**Docker images are built manually only** - there are no automated CI builds on releases or tags.
+
 To build the app - including all services defined in the `docker-compose.yml` file - locally run the local compose file at your terminal as
 
 ```sh
 docker compose -f docker-compose-local-build.yml up --build
 ```
 
+For multi-platform builds (AMD64 + ARM64) and pushing to GitHub Container Registry, use the local build script:
+
+```sh
+bash scripts/build_and_push.sh
+```
+
 This will build the docker images for the app, database, and auto description generator, and start the app at `http://localhost:3000`.
 
 ### Running tests
 
-To run tests locally pull the repo and cd into the `meme_search/meme_search_pro/meme_search_app` directory. Install the requird gems as
+To run tests locally pull the repo and cd into the `meme_search/meme_search/meme_search_app` directory. Install the required gems as
 
 ```sh
 bundle install
@@ -213,6 +277,56 @@ rubocop app
 ```
 
 to ensure the code is clean and well formatted.
+
+#### Running CI Locally (Optional)
+
+You can run the complete GitHub Actions CI workflow locally using [act](https://github.com/nektos/act):
+
+```bash
+# Install act (macOS)
+brew install act
+
+# Run all CI jobs
+act --container-architecture linux/amd64 -P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Run specific job
+act -j pro_app_unit_tests --container-architecture linux/amd64 -P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
+
+This validates your changes match CI before pushing to GitHub.
+
+#### Docker E2E Tests (Local Validation Only)
+
+**Docker E2E tests validate the complete microservices stack** (Rails + Python + PostgreSQL) in isolated Docker containers. These tests run against fresh Docker builds and test cross-service communication, webhooks, and production-like deployment.
+
+**Current Status**: 6/7 smoke tests passing (85% coverage) - see `playwright-docker/README.md` for details
+
+```bash
+# Run all Docker E2E tests
+npm run test:e2e:docker
+
+# Run with UI mode (recommended for debugging)
+npm run test:e2e:docker:ui
+```
+
+**What these tests cover**:
+- Complete image processing pipeline (Rails → Python → Rails webhooks)
+- Vector search with embedding generation
+- Keyword search functionality
+- Concurrent processing and job queueing
+- Embedding refresh operations
+
+**Important**: These tests **DO NOT run in CI** due to Docker build time (~10-15 minutes) and resource requirements. **Contributors MUST run these tests locally** before submitting PRs that affect:
+- Docker configurations
+- Cross-service communication
+- Image-to-text generation workflow
+- Embedding generation
+
+See `playwright-docker/README.md` for comprehensive documentation.
+
+## Discord server
+
+Join our Discord server [![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?style=flat&logo=discord&logoColor=white)](https://discord.com/invite/8EUxqR93) to discuss new features, bug fixes, and other open source projects (like [ytgify](https://chromewebstore.google.com/detail/ytgify/dnljofakogbecppbkmnoffppkfdmpfje) - a browser extension for clipping GIFs from YouTube right from the YT Player!).
 
 ## Changelog
 
@@ -263,12 +377,12 @@ flowchart TD
     Docker ---|"orchestrates"| DB
 
     %% Click Events
-    click Rails "https://github.com/neonwatty/meme-search/tree/main/meme_search_pro/meme_search_app"
-    click Python "https://github.com/neonwatty/meme-search/tree/main/meme_search_pro/image_to_text_generator"
-    click DB "https://github.com/neonwatty/meme-search/blob/main/meme_search_pro/meme_search_app/config/database.yml"
+    click Rails "https://github.com/neonwatty/meme-search/tree/main/meme_search/meme_search_app"
+    click Python "https://github.com/neonwatty/meme-search/tree/main/meme_search/image_to_text_generator"
+    click DB "https://github.com/neonwatty/meme-search/blob/main/meme_search/meme_search_app/config/database.yml"
     click Docker "https://github.com/neonwatty/meme-search/blob/main/docker-compose.yml"
-    click PublicMemes "https://github.com/neonwatty/meme-search/tree/main/meme_search_pro/meme_search_app/public/memes"
-    click MemeDir "https://github.com/neonwatty/meme-search/tree/main/meme_search_pro/memes"
+    click PublicMemes "https://github.com/neonwatty/meme-search/tree/main/meme_search/meme_search_app/public/memes"
+    click MemeDir "https://github.com/neonwatty/meme-search/tree/main/meme_search/memes"
 
     %% Styles
     classDef user fill:#fceabb,stroke:#d79b00,stroke-width:2px;
