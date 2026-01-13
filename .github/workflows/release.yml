@@ -1,0 +1,60 @@
+# Release workflow - triggers on version tags
+# Creates GitHub release (Docker images are built locally due to CI timeout issues)
+name: "Release"
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # Create GitHub Release
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Verify VERSION file matches tag
+        run: |
+          FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$FILE_VERSION" != "$TAG_VERSION" ]; then
+            echo "ERROR: VERSION file ($FILE_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $TAG_VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release v${{ steps.get_version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          body: |
+            ## Docker Images
+
+            Build and push Docker images locally (CI builds timeout):
+
+            ```bash
+            # Login to GitHub Container Registry
+            docker login ghcr.io -u USERNAME
+
+            # Build and push all images
+            ./scripts/build_and_push.sh --platform multi
+
+            # Tag with version
+            docker buildx imagetools create ghcr.io/neonwatty/meme_search:latest --tag ghcr.io/neonwatty/meme_search:v${{ steps.get_version.outputs.version }}
+            docker buildx imagetools create ghcr.io/neonwatty/image_to_text_generator:latest --tag ghcr.io/neonwatty/image_to_text_generator:v${{ steps.get_version.outputs.version }}
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
