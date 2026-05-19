@@ -45,30 +45,14 @@ class ImageCoresController < ApplicationController
   def generate_description
     status = @image_core.status
     if status != "in_queue" && status != "processing"
-      # update status of instance
-      @image_core.status = 1
-      @image_core.save
-
-      # get current model
-      current_model = ImageToText.find_by(current: true)
-
-      # send request
-      uri = URI("http://image_to_text_generator:8000/add_job")
-      http = Net::HTTP.new(uri.host, uri.port)
-
-      # Try to make a request to the first URI
-      request = Net::HTTP::Post.new(uri)
-      request["Content-Type"] = "application/json"
-      data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
-      request.body = data.to_json
-      response = http.request(request)
+      result = image_description_provider.generate(@image_core)
 
       respond_to do |format|
-        if response.is_a?(Net::HTTPSuccess)
-          # flash[:notice] = "Image added to queue for automatic description generation."
-          # format.html { redirect_back_or_to root_path }
+        if result.success?
+          flash[:notice] = result.message if result.message.present?
+          format.html { redirect_back_or_to root_path }
         else
-          flash[:alert] = "Cannot generate description, your image to text genertaor is offline!"
+          flash[:alert] = result.message
           format.html { redirect_back_or_to root_path }
         end
       end
@@ -140,46 +124,31 @@ class ImageCoresController < ApplicationController
       }
     }
 
-    # Get current model
-    current_model = ImageToText.find_by(current: true)
-
     # Queue all images for description generation
     queued_count = 0
+    generated_count = 0
     failed_count = 0
+    provider = image_description_provider
 
     images_without_descriptions.each do |image_core|
-      # Update status to in_queue
-      image_core.update(status: 1)
-
-      # Send request to Python service
-      begin
-        uri = URI("http://image_to_text_generator:8000/add_job")
-        http = Net::HTTP.new(uri.host, uri.port)
-        request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
-        data = {
-          image_core_id: image_core.id,
-          image_path: image_core.image_path.name + "/" + image_core.name,
-          model: current_model.name
-        }
-        request.body = data.to_json
-        response = http.request(request)
-
-        if response.is_a?(Net::HTTPSuccess)
+      result = provider.generate(image_core)
+      if result.success?
+        if result.queued?
           queued_count += 1
         else
-          image_core.update(status: 5) # failed
-          failed_count += 1
+          generated_count += 1
         end
-      rescue => e
-        Rails.logger.error "Failed to queue image #{image_core.id}: #{e.message}"
-        image_core.update(status: 5) # failed
+      else
         failed_count += 1
       end
     end
 
     respond_to do |format|
-      flash[:notice] = "Queued #{queued_count} images for description generation."
+      notices = []
+      notices << "Queued #{queued_count} images for description generation." if queued_count > 0
+      notices << "Generated descriptions for #{generated_count} images." if generated_count > 0
+      notices << "No images needed description generation." if notices.empty? && failed_count == 0
+      flash[:notice] = notices.join(" ")
       flash[:alert] = "Failed to queue #{failed_count} images." if failed_count > 0
       format.html { redirect_to image_cores_path(
         selected_tag_names: params[:selected_tag_names],
@@ -411,6 +380,10 @@ class ImageCoresController < ApplicationController
   end
 
   private
+
+    def image_description_provider
+      @image_description_provider ||= ImageDescriptionProviders::Factory.build
+    end
 
     def get_filtered_image_cores(filter_params = nil)
       # Use provided filter params or fall back to request params

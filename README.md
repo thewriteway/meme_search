@@ -4,7 +4,7 @@
 
 Use AI to index your memes by their content and text, making them easily retrievable for your meme warfare pleasures.
 
-All processing - from image-to-text extraction, to vector embedding, to search - is performed locally.
+By default, processing from image-to-text extraction, to vector embedding, to search is performed locally. You can also use an OpenAI-compatible vision API for description generation while keeping embeddings and search local.
 
   <p align="center">
     <img src="https://github.com/user-attachments/assets/0529764f-a009-4e17-8947-63c7c96075a5"
@@ -156,7 +156,7 @@ To start up the app pull this repository and start the server cluster with docke
 docker compose up
 ```
 
-This pulls and starts containers for the app, database, and auto description generator. The app itself will run on port `3000` and is available at
+This pulls and starts containers for the app, database, and local auto description generator. The app itself will run on port `3000` and is available at
 
 ```sh
 http://localhost:3000
@@ -182,6 +182,30 @@ extra_hosts:
 The first auto generation of description of a meme takes longer than average, as image-to-text model weights are downloaded and cached. Subsequent generations are faster.
 
 You can download additional models in the settings tab of the app.
+
+### Description generation providers
+
+Meme Search supports two providers for automatic meme descriptions:
+
+- `IMAGE_DESCRIPTION_PROVIDER=local` uses the bundled Python `image_to_text_generator` service. This is the default and keeps description generation local.
+- `IMAGE_DESCRIPTION_PROVIDER=openai` calls an OpenAI-compatible `/chat/completions` vision API directly from Rails. In this mode the Python generator service is not required.
+
+For OpenAI-compatible mode, set these environment variables in your `.env` file:
+
+```sh
+IMAGE_DESCRIPTION_PROVIDER=openai
+OPENAI_API_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=your_api_key
+OPENAI_VISION_MODEL=gpt-4o-mini
+```
+
+Then start only the Rails app and database:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.openai.yml up meme_search meme_search_db
+```
+
+For local inference mode, keep the default `docker compose up` command so the `image_to_text_generator` service starts and can access the same meme volumes as Rails.
 
 ### Index your memes
 

@@ -221,15 +221,10 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       current: true
     )
 
-    mock_response = Minitest::Mock.new
-    mock_response.expect(:is_a?, true, [ Net::HTTPSuccess ])
+    stub_request(:post, "http://image_to_text_generator:8000/add_job")
+      .to_return(status: 200, body: '{"status":"queued"}', headers: { "Content-Type" => "application/json" })
 
-    mock_http = Minitest::Mock.new
-    mock_http.expect(:request, mock_response, [ Net::HTTP::Post ])
-
-    Net::HTTP.stub(:new, mock_http) do
-      post generate_description_image_core_url(@image_core)
-    end
+    post generate_description_image_core_url(@image_core)
 
     @image_core.reload
     assert_equal "in_queue", @image_core.status
@@ -261,17 +256,13 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       current: true
     )
 
-    mock_response = Minitest::Mock.new
-    mock_response.expect(:is_a?, false, [ Net::HTTPSuccess ])
+    stub_request(:post, "http://image_to_text_generator:8000/add_job")
+      .to_return(status: 503, body: '{"error":"offline"}', headers: { "Content-Type" => "application/json" })
 
-    mock_http = Minitest::Mock.new
-    mock_http.expect(:request, mock_response, [ Net::HTTP::Post ])
-
-    Net::HTTP.stub(:new, mock_http) do
-      post generate_description_image_core_url(@image_core)
-      assert_redirected_to root_path
-      assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
-    end
+    post generate_description_image_core_url(@image_core)
+    assert_redirected_to root_path
+    assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
+    assert_equal "failed", @image_core.reload.status
   end
 
   # Generate stopper tests

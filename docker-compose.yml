@@ -4,6 +4,10 @@ services:
     container_name: meme_search
     environment:
       DATABASE_URL: "postgres://postgres:postgres@meme-search-db:5432/meme_search"
+      IMAGE_DESCRIPTION_PROVIDER: "${IMAGE_DESCRIPTION_PROVIDER:-local}"
+      OPENAI_API_BASE_URL: "${OPENAI_API_BASE_URL:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_VISION_MODEL: "${OPENAI_VISION_MODEL:-}"
     ports:
       - "${APP_PORT:-3000}:3000" # <--  adjust to desired local port for this service in your .env file
     depends_on:
@@ -16,6 +20,9 @@ services:
 
 
   image_to_text_generator:
+    # Required only when IMAGE_DESCRIPTION_PROVIDER=local, which is the default.
+    # For external OpenAI-compatible vision APIs, run only meme_search and meme_search_db:
+    # docker compose up meme_search meme_search_db
     image: ghcr.io/neonwatty/image_to_text_generator:latest
     container_name: image_to_text_generator
     environment:
