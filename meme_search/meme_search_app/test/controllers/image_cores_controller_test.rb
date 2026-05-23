@@ -2,6 +2,8 @@ require "test_helper"
 require "minitest/mock"
 
 class ImageCoresControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   def setup
     @image_core = image_cores(:one)
     @image_path = image_paths(:one)
@@ -263,6 +265,33 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
     assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
     assert_equal "failed", @image_core.reload.status
+  end
+
+  test "bulk generate descriptions enqueues jobs for openai provider without calling api inline" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    provider = Minitest::Mock.new
+    provider.expect(:queued_provider?, false)
+
+    test_case = self
+    provider.define_singleton_method(:generate) do |_image_core|
+      test_case.flunk "provider.generate should not run inline for openai bulk generation"
+    end
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        assert_enqueued_with(job: GenerateImageDescriptionJob, args: [ image_core.id ]) do
+          post bulk_generate_descriptions_image_cores_url
+        end
+      end
+    end
+
+    provider.verify
+    assert_redirected_to image_cores_path
+    assert_match "Queued 1 images", flash[:notice]
+    assert_equal "in_queue", image_core.reload.status
   end
 
   # Generate stopper tests
@@ -610,4 +639,18 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     # Rails catches RecordNotFound and returns 404
     assert_response :not_found
   end
+
+  private
+
+    def with_env(values)
+      old_values = values.keys.to_h { |key| [ key, ENV[key] ] }
+      values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+      yield
+    ensure
+      old_values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+    end
 end

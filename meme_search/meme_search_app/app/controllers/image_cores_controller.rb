@@ -126,27 +126,33 @@ class ImageCoresController < ApplicationController
 
     # Queue all images for description generation
     queued_count = 0
-    generated_count = 0
     failed_count = 0
     provider = image_description_provider
 
     images_without_descriptions.each do |image_core|
-      result = provider.generate(image_core)
-      if result.success?
-        if result.queued?
+      if provider.queued_provider?
+        result = provider.generate(image_core)
+        if result.success?
           queued_count += 1
         else
-          generated_count += 1
+          failed_count += 1
         end
       else
-        failed_count += 1
+        begin
+          image_core.update!(status: :in_queue)
+          GenerateImageDescriptionJob.perform_later(image_core.id)
+          queued_count += 1
+        rescue StandardError => e
+          Rails.logger.error "Failed to enqueue image description job for image #{image_core.id}: #{e.class}: #{e.message}"
+          image_core.update(status: :failed)
+          failed_count += 1
+        end
       end
     end
 
     respond_to do |format|
       notices = []
       notices << "Queued #{queued_count} images for description generation." if queued_count > 0
-      notices << "Generated descriptions for #{generated_count} images." if generated_count > 0
       notices << "No images needed description generation." if notices.empty? && failed_count == 0
       flash[:notice] = notices.join(" ")
       flash[:alert] = "Failed to queue #{failed_count} images." if failed_count > 0
