@@ -5,14 +5,16 @@ require "fileutils"
 
 class ImageDescriptionProvidersTest < ActiveSupport::TestCase
   def setup
-    @image_core = image_cores(:one)
-    @image_file = Rails.root.join("public", "memes", @image_core.image_path.name, @image_core.name)
-    FileUtils.mkdir_p(@image_file.dirname)
+    @image_dir = Rails.root.join("public", "memes", "provider_test_path")
+    FileUtils.mkdir_p(@image_dir)
+    @image_path = ImagePath.create!(name: "provider_test_path")
+    @image_core = ImageCore.create!(name: "provider_test.jpg", image_path: @image_path)
+    @image_file = @image_dir.join(@image_core.name)
     File.binwrite(@image_file, "fake image bytes")
   end
 
   def teardown
-    FileUtils.rm_f(@image_file)
+    FileUtils.rm_rf(@image_dir) if @image_dir
     WebMock.reset!
   end
 
