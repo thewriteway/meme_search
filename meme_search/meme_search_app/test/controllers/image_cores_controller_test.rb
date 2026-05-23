@@ -267,6 +267,26 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     assert_equal "failed", @image_core.reload.status
   end
 
+  test "single image generate description runs openai provider immediately" do
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+    result = ImageDescriptionProviders::Result.new(success: true, message: "Generated description.", queued: false)
+    provider = Minitest::Mock.new
+    provider.expect(:generate, result, [ image_core ])
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        assert_no_enqueued_jobs do
+          post generate_description_image_core_url(image_core)
+        end
+      end
+    end
+
+    assert_redirected_to root_path
+    assert_equal "Generated description.", flash[:notice]
+    provider.verify
+  end
+
   test "bulk generate descriptions enqueues jobs for openai provider without calling api inline" do
     ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
     image_core = image_cores(:one)
