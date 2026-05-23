@@ -10,6 +10,11 @@ module ImageDescriptionProviders
     DEFAULT_BASE_URL = "https://api.openai.com/v1"
     DEFAULT_MODEL = "gpt-4o-mini"
     PROMPT = "Describe this meme for semantic search. Include visible text, objects, people, setting, and the joke or sentiment. Keep it concise."
+    MAX_DESCRIPTION_LENGTH = ImageCore.validators_on(:description)
+      .grep(ActiveModel::Validations::LengthValidator)
+      .filter_map { |validator| validator.options[:maximum] }
+      .min || 500
+    MAX_COMPLETION_TOKENS = 160
 
     def generate(image_core)
       image_core.update(status: :processing)
@@ -18,7 +23,7 @@ module ImageDescriptionProviders
         return fail_image(image_core, "OPENAI_API_KEY is required for OpenAI image description generation.")
       end
 
-      description = request_description(image_core)
+      description = normalize_description(request_description(image_core))
       if description.blank?
         return fail_image(image_core, "OpenAI vision API returned an unsupported response.")
       end
@@ -59,6 +64,7 @@ module ImageDescriptionProviders
       def request_body(image_core)
         {
           model: model,
+          max_tokens: MAX_COMPLETION_TOKENS,
           messages: [
             {
               role: "user",
@@ -69,6 +75,10 @@ module ImageDescriptionProviders
             }
           ]
         }
+      end
+
+      def normalize_description(description)
+        description.to_s.squish.truncate(MAX_DESCRIPTION_LENGTH, omission: "")
       end
 
       def data_uri(image_core)

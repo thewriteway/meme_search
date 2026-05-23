@@ -120,6 +120,48 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
     end
   end
 
+  test "openai provider truncates long descriptions to image validation limit" do
+    long_description = "A" * 700
+
+    with_openai_env do
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: { content: long_description } } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      @image_core.stub(:refresh_description_embeddings, true) do
+        ActionCable.server.stub(:broadcast, true) do
+          result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
+
+          assert result.success?
+        end
+      end
+    end
+
+    @image_core.reload
+    assert_equal 500, @image_core.description.length
+    assert_equal "done", @image_core.status
+  end
+
+  test "openai provider fails when normalized description is blank" do
+    with_openai_env do
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: { content: "   \n\t   " } } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
+
+      assert_not result.success?
+      assert_match "unsupported response", result.message
+      assert_equal "failed", @image_core.reload.status
+    end
+  end
+
   private
 
     def with_openai_env(&block)
@@ -149,6 +191,7 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
 
       request.headers["Authorization"] == "Bearer test-key" &&
         body["model"] == "vision-test" &&
+        body["max_tokens"] == 160 &&
         image_url.start_with?("data:image/jpeg;base64,")
     end
 end
