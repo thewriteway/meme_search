@@ -156,7 +156,7 @@ To start up the app pull this repository and start the server cluster with docke
 docker compose up
 ```
 
-This pulls and starts containers for the app, database, and local auto description generator. The app itself will run on port `3000` and is available at
+This pulls and starts containers for the app, database, Solid Queue job worker, and local auto description generator. The app itself will run on port `3000` and is available at
 
 ```sh
 http://localhost:3000
@@ -190,7 +190,7 @@ Meme Search supports two providers for automatic meme descriptions:
 - `IMAGE_DESCRIPTION_PROVIDER=local` uses the bundled Python `image_to_text_generator` service. This is the default and keeps description generation local.
 - `IMAGE_DESCRIPTION_PROVIDER=openai` calls an OpenAI-compatible `/chat/completions` vision API directly from Rails. In this mode the Python generator service is not required.
 
-OpenAI-compatible descriptions are normalized to the app's description length limit before saving. Bulk generation queues background jobs for external providers so the web request does not wait on one API request per image.
+OpenAI-compatible descriptions are normalized to the app's description length limit before saving. Bulk generation queues durable Solid Queue background jobs for external providers so the web request does not wait on one API request per image.
 
 For OpenAI-compatible mode, set these environment variables in your `.env` file:
 
@@ -201,10 +201,10 @@ OPENAI_API_KEY=your_api_key
 OPENAI_VISION_MODEL=gpt-4o-mini
 ```
 
-Then start only the Rails app and database:
+Then start Rails, the Solid Queue worker, and the database without the Python generator:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.openai.yml up meme_search meme_search_db
+docker compose -f docker-compose.yml -f docker-compose.openai.yml up meme_search meme_search_jobs meme_search_db
 ```
 
 For local inference mode, keep the default `docker compose up` command so the `image_to_text_generator` service starts and can access the same meme volumes as Rails.

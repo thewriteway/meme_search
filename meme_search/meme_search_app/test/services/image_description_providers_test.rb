@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "fileutils"
+require "minitest/mock"
 
 class ImageDescriptionProvidersTest < ActiveSupport::TestCase
   def setup
@@ -35,6 +36,10 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
 
     assert provider.queued_provider?
     assert_equal "local", provider.name
+  end
+
+  test "local provider waits longer than generator status callback timeout" do
+    assert_operator ImageDescriptionProviders::LocalProvider::READ_TIMEOUT, :>, 30
   end
 
   test "openai provider reports inline generation behavior" do

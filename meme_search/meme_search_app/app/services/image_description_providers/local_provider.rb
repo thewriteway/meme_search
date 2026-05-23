@@ -7,6 +7,7 @@ require "uri"
 module ImageDescriptionProviders
   class LocalProvider
     ADD_JOB_URL = "http://image_to_text_generator:8000/add_job"
+    READ_TIMEOUT = 35
 
     def name
       "local"
@@ -23,7 +24,7 @@ module ImageDescriptionProviders
       uri = URI(ADD_JOB_URL)
       http = Net::HTTP.new(uri.host, uri.port)
       http.open_timeout = 5
-      http.read_timeout = 10
+      http.read_timeout = READ_TIMEOUT
 
       request = Net::HTTP::Post.new(uri)
       request["Content-Type"] = "application/json"

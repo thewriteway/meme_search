@@ -77,3 +77,5 @@ gem "neighbor"
 gem "informers"
 gem "tokenizers", "~> 0.6.1"
 gem "pgvector"
+
+gem "solid_queue", "~> 1.4"
