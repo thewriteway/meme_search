@@ -26,6 +26,7 @@ module ImageDescriptionProviders
 
     def generate(image_core)
       image_core.update(status: :processing)
+      broadcast_status(image_core)
 
       unless api_key.present?
         return fail_image(image_core, "OPENAI_API_KEY is required for OpenAI image description generation.")
@@ -116,12 +117,23 @@ module ImageDescriptionProviders
         image_core.update!(description: description, status: :done)
         div_id = "description-image-core-id-#{image_core.id}"
         ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: description }
+        broadcast_status(image_core)
         image_core.refresh_description_embeddings
       end
 
       def fail_image(image_core, message)
         image_core.update(status: :failed)
+        broadcast_status(image_core)
         Result.new(success: false, message: message, queued: false)
+      end
+
+      def broadcast_status(image_core)
+        div_id = "status-image-core-id-#{image_core.id}"
+        status_html = ApplicationController.renderer.render(
+          partial: "image_cores/generate_status",
+          locals: { img_id: image_core.id, div_id: div_id, status: image_core.status }
+        )
+        ActionCable.server.broadcast "image_status_channel", { div_id: div_id, status_html: status_html }
       end
 
       def base_url

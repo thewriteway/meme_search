@@ -56,6 +56,7 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
 
   test "openai provider saves description and broadcasts on success" do
     description = "A meme with visible text and a joke."
+    broadcasts = []
 
     with_openai_env do
       stub_request(:post, "http://openai.test/v1/chat/completions")
@@ -68,8 +69,7 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
 
       @image_core.stub(:refresh_description_embeddings, true) do
         ActionCable.server.stub(:broadcast, ->(channel, data) {
-          assert_equal "image_description_channel", channel
-          assert_equal description, data[:description]
+          broadcasts << [ channel, data ]
         }) do
           result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
           assert result.success?
@@ -81,6 +81,13 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
     @image_core.reload
     assert_equal description, @image_core.description
     assert_equal "done", @image_core.status
+    description_broadcast = broadcasts.find { |entry| entry[0] == "image_description_channel" }
+    done_status_broadcast = broadcasts.find { |entry|
+      entry[0] == "image_status_channel" && entry[1][:status_html].include?("done")
+    }
+    assert_equal description, description_broadcast.last[:description]
+    assert_equal "description-image-core-id-#{@image_core.id}", description_broadcast.last[:div_id]
+    assert_equal "status-image-core-id-#{@image_core.id}", done_status_broadcast.last[:div_id]
   end
 
   test "openai provider fails gracefully when api key is missing" do
@@ -90,11 +97,22 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
       "OPENAI_API_KEY" => nil,
       "OPENAI_VISION_MODEL" => "vision-test"
     ) do
-      result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
+      broadcasts = []
 
-      assert_not result.success?
-      assert_match "OPENAI_API_KEY", result.message
-      assert_equal "failed", @image_core.reload.status
+      ActionCable.server.stub(:broadcast, ->(channel, data) {
+        broadcasts << [ channel, data ]
+      }) do
+        result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
+
+        assert_not result.success?
+        assert_match "OPENAI_API_KEY", result.message
+        assert_equal "failed", @image_core.reload.status
+      end
+
+      failed_status_broadcast = broadcasts.find { |entry|
+        entry[0] == "image_status_channel" && entry[1][:status_html].include?("failed")
+      }
+      assert_equal "status-image-core-id-#{@image_core.id}", failed_status_broadcast.last[:div_id]
     end
   end
 
