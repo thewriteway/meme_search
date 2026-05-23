@@ -10,10 +10,26 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_23_185000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_23_220000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
+
+  create_table "description_provider_settings", force: :cascade do |t|
+    t.integer "singleton_key", default: 0, null: false
+    t.string "provider", default: "local", null: false
+    t.string "openai_base_url", default: "https://api.openai.com/v1", null: false
+    t.string "openai_model", default: "gpt-4o-mini", null: false
+    t.text "openai_api_key_ciphertext"
+    t.string "openai_key_last_four"
+    t.string "openai_last_test_status", default: "not_tested", null: false
+    t.datetime "openai_last_tested_at"
+    t.text "openai_last_test_error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["singleton_key"], name: "index_description_provider_settings_on_singleton_key", unique: true
+    t.check_constraint "singleton_key = 0", name: "description_provider_settings_singleton_key_check"
+  end
 
   create_table "image_cores", force: :cascade do |t|
     t.bigint "image_path_id", null: false
