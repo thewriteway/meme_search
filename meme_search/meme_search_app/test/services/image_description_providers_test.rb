@@ -28,6 +28,20 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
     end
   end
 
+  test "local provider reports asynchronous queue behavior" do
+    provider = ImageDescriptionProviders::LocalProvider.new
+
+    assert provider.queued_provider?
+    assert_equal "local", provider.name
+  end
+
+  test "openai provider reports inline generation behavior" do
+    provider = ImageDescriptionProviders::OpenaiProvider.new
+
+    assert_not provider.queued_provider?
+    assert_equal "openai", provider.name
+  end
+
   test "result exposes predicate helpers without relying on Ruby Data" do
     result = ImageDescriptionProviders::Result.new(success: true, message: "Queued", queued: true)
 

@@ -8,6 +8,14 @@ module ImageDescriptionProviders
   class LocalProvider
     ADD_JOB_URL = "http://image_to_text_generator:8000/add_job"
 
+    def name
+      "local"
+    end
+
+    def queued_provider?
+      true
+    end
+
     def generate(image_core)
       image_core.update(status: :in_queue)
 

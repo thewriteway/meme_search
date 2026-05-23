@@ -16,6 +16,14 @@ module ImageDescriptionProviders
       .min || 500
     MAX_COMPLETION_TOKENS = 160
 
+    def name
+      "openai"
+    end
+
+    def queued_provider?
+      false
+    end
+
     def generate(image_core)
       image_core.update(status: :processing)
 
