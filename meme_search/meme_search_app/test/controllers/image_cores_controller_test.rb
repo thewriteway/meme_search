@@ -334,6 +334,23 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     assert_equal "removing", @image_core.status
   end
 
+  test "generate_stopper should cancel openai queued job locally" do
+    @image_core.update!(status: :in_queue)
+    provider = Minitest::Mock.new
+    provider.expect(:queued_provider?, false)
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post generate_stopper_image_core_url(@image_core)
+      end
+    end
+
+    provider.verify
+    assert_redirected_to root_path
+    assert_equal "Removed from process queue.", flash[:notice]
+    assert_equal "not_started", @image_core.reload.status
+  end
+
   test "generate_stopper should not remove if not in_queue" do
     @image_core.update!(status: :done)
 

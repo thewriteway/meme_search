@@ -71,25 +71,33 @@ class ImageCoresController < ApplicationController
     end
     status = @image_core.status
     if status == "in_queue"
-      # update status of instance
-      @image_core.status = 4
-      @image_core.save!
+      if image_description_provider.queued_provider?
+        # update status of instance
+        @image_core.status = 4
+        @image_core.save!
 
-      # send request
-      uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
-      http = Net::HTTP.new(uri.host, uri.port)
+        # send request
+        uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
+        http = Net::HTTP.new(uri.host, uri.port)
 
-      # Try to make a request to the first URI
-      request = Net::HTTP::Delete.new(uri.request_uri)
-      request["Content-Type"] = "application/json"
-      response = http.request(request)
+        # Try to make a request to the first URI
+        request = Net::HTTP::Delete.new(uri.request_uri)
+        request["Content-Type"] = "application/json"
+        response = http.request(request)
 
-      respond_to do |format|
-        if response.is_a?(Net::HTTPSuccess)
-          flash[:notice] = "Removing from process queue."
-          format.html { redirect_back_or_to root_path }
-        else
-          flash[:alert] = "Error: #{response.code} - #{response.message}"
+        respond_to do |format|
+          if response.is_a?(Net::HTTPSuccess)
+            flash[:notice] = "Removing from process queue."
+            format.html { redirect_back_or_to root_path }
+          else
+            flash[:alert] = "Error: #{response.code} - #{response.message}"
+            format.html { redirect_back_or_to root_path }
+          end
+        end
+      else
+        @image_core.update!(status: :not_started)
+        respond_to do |format|
+          flash[:notice] = "Removed from process queue."
           format.html { redirect_back_or_to root_path }
         end
       end
@@ -227,19 +235,24 @@ class ImageCoresController < ApplicationController
 
       in_queue_images.each do |image_core|
         begin
-          # Update status to removing
-          image_core.update(status: 4)
+          if image_description_provider.queued_provider?
+            # Update status to removing
+            image_core.update(status: 4)
 
-          # Send remove request to Python service
-          uri = URI("http://image_to_text_generator:8000/remove_job/#{image_core.id}")
-          http = Net::HTTP.new(uri.host, uri.port)
-          request = Net::HTTP::Delete.new(uri.request_uri)
-          request["Content-Type"] = "application/json"
-          response = http.request(request)
+            # Send remove request to Python service
+            uri = URI("http://image_to_text_generator:8000/remove_job/#{image_core.id}")
+            http = Net::HTTP.new(uri.host, uri.port)
+            request = Net::HTTP::Delete.new(uri.request_uri)
+            request["Content-Type"] = "application/json"
+            response = http.request(request)
 
-          if response.is_a?(Net::HTTPSuccess)
-            # Reset to not_started after successful removal
-            image_core.update(status: 0)
+            if response.is_a?(Net::HTTPSuccess)
+              # Reset to not_started after successful removal
+              image_core.update(status: 0)
+              cancelled_count += 1
+            end
+          else
+            image_core.update(status: :not_started)
             cancelled_count += 1
           end
         rescue => e
