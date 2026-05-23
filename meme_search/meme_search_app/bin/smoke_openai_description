@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../config/environment"
+
+unless ENV["OPENAI_API_KEY"].present?
+  abort "OPENAI_API_KEY is required. Example: OPENAI_API_KEY=sk-... bin/smoke_openai_description"
+end
+
+ENV["IMAGE_DESCRIPTION_PROVIDER"] = "openai"
+ENV["OPENAI_API_BASE_URL"] = ENV["OPENAI_API_BASE_URL"].presence || ImageDescriptionProviders::OpenaiProvider::DEFAULT_BASE_URL
+ENV["OPENAI_VISION_MODEL"] = ENV["OPENAI_VISION_MODEL"].presence || ImageDescriptionProviders::OpenaiProvider::DEFAULT_MODEL
+
+def existing_sample_image_core
+  ImageCore.includes(:image_path).find_each.find do |image_core|
+    File.file?(Rails.root.join("public", "memes", image_core.image_path.name, image_core.name))
+  end
+end
+
+image_core = existing_sample_image_core
+abort "No ImageCore record points at an existing file under public/memes." unless image_core
+
+puts "Running OpenAI live smoke test with #{ENV.fetch("OPENAI_VISION_MODEL")}."
+puts "ImageCore ##{image_core.id}: #{image_core.image_path.name}/#{image_core.name}"
+
+result = nil
+
+ActiveRecord::Base.transaction do
+  image_core.update!(status: :in_queue, description: nil)
+  GenerateImageDescriptionJob.perform_now(image_core.id)
+
+  image_core.reload
+  result = {
+    status: image_core.status,
+    description: image_core.description.to_s
+  }
+
+  raise ActiveRecord::Rollback
+end
+
+unless result[:status] == "done" && result[:description].present?
+  abort "OpenAI smoke test failed. Final status: #{result[:status].inspect}"
+end
+
+puts "OpenAI smoke test passed."
+puts "Generated description:"
+puts result[:description]

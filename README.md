@@ -207,6 +207,15 @@ Then start Rails, the Solid Queue worker, and the database without the Python ge
 docker compose -f docker-compose.yml -f docker-compose.openai.yml up meme_search meme_search_jobs meme_search_db
 ```
 
+To smoke-test a real OpenAI-compatible call before starting a bulk run, run this from the Rails app directory:
+
+```sh
+cd meme_search/meme_search_app
+OPENAI_API_KEY=your_api_key mise exec -- bin/smoke_openai_description
+```
+
+The smoke test uses the first indexed sample image that exists under `public/memes`, runs the same job/provider path as background generation, and rolls back database changes after the API call succeeds.
+
 For local inference mode, keep the default `docker compose up` command so the `image_to_text_generator` service starts and can access the same meme volumes as Rails.
 
 ### Index your memes
