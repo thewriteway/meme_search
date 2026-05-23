@@ -226,8 +226,8 @@ class ImageCoresController < ApplicationController
 
   def bulk_operation_cancel
     if session[:bulk_operation].present?
-      filter_params = session[:bulk_operation][:filter_params]
-      image_cores = get_filtered_image_cores(filter_params)
+      image_ids = session[:bulk_operation][:image_ids] || session[:bulk_operation]["image_ids"] || []
+      image_cores = ImageCore.where(id: image_ids)
 
       # Cancel all in_queue images
       in_queue_images = image_cores.where(status: 1)

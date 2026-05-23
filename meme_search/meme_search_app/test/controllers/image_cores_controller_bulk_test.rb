@@ -593,6 +593,8 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to image_cores_path
     bulk_provider.verify
+    unrelated_image = setup_bulk_test_images(count: 1, with_descriptions: false).first
+    unrelated_image.update!(status: :in_queue)
 
     cancel_provider = Minitest::Mock.new
     cancel_provider.expect(:queued_provider?, false)
@@ -608,6 +610,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     images.each do |image|
       assert_equal "not_started", image.reload.status
     end
+    assert_equal "in_queue", unrelated_image.reload.status
     assert_nil session[:bulk_operation], "Session should be cleared after cancel"
     cancel_provider.verify
   end
