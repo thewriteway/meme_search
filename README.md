@@ -190,6 +190,8 @@ Meme Search supports two providers for automatic meme descriptions:
 - `IMAGE_DESCRIPTION_PROVIDER=local` uses the bundled Python `image_to_text_generator` service. This is the default and keeps description generation local.
 - `IMAGE_DESCRIPTION_PROVIDER=openai` calls an OpenAI-compatible `/chat/completions` vision API directly from Rails. In this mode the Python generator service is not required.
 
+OpenAI-compatible descriptions are normalized to the app's description length limit before saving. Bulk generation queues background jobs for external providers so the web request does not wait on one API request per image.
+
 For OpenAI-compatible mode, set these environment variables in your `.env` file:
 
 ```sh
