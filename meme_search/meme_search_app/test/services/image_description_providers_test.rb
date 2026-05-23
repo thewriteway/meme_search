@@ -31,6 +31,22 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
     end
   end
 
+  test "factory selects openai provider from saved setting when env is absent" do
+    DescriptionProviderSetting.current.update!(provider: "openai")
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => nil) do
+      assert_instance_of ImageDescriptionProviders::OpenaiProvider, ImageDescriptionProviders::Factory.build
+    end
+  end
+
+  test "factory env provider overrides saved setting" do
+    DescriptionProviderSetting.current.update!(provider: "openai")
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "local") do
+      assert_instance_of ImageDescriptionProviders::LocalProvider, ImageDescriptionProviders::Factory.build
+    end
+  end
+
   test "local provider reports asynchronous queue behavior" do
     provider = ImageDescriptionProviders::LocalProvider.new
 
@@ -93,6 +109,43 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
     assert_equal description, description_broadcast.last[:description]
     assert_equal "description-image-core-id-#{@image_core.id}", description_broadcast.last[:div_id]
     assert_equal "status-image-core-id-#{@image_core.id}", done_status_broadcast.last[:div_id]
+  end
+
+  test "openai provider uses saved api key when env key is absent" do
+    setting = DescriptionProviderSetting.current
+    setting.update!(
+      provider: "openai",
+      openai_base_url: "http://openai.test/v1",
+      openai_model: "gpt-4.1-mini"
+    )
+    setting.openai_api_key = "saved-test-key"
+    setting.save!
+
+    with_env(
+      "OPENAI_API_BASE_URL" => nil,
+      "OPENAI_API_KEY" => nil,
+      "OPENAI_VISION_MODEL" => nil
+    ) do
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .with { |request|
+          body = JSON.parse(request.body)
+          request.headers["Authorization"] == "Bearer saved-test-key" &&
+            body["model"] == "gpt-4.1-mini"
+        }
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: { content: "Saved key description" } } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      @image_core.stub(:refresh_description_embeddings, true) do
+        ActionCable.server.stub(:broadcast, true) do
+          result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
+
+          assert result.success?
+        end
+      end
+    end
   end
 
   test "openai provider fails gracefully when api key is missing" do

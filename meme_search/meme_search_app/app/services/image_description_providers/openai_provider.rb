@@ -16,6 +16,10 @@ module ImageDescriptionProviders
       .min || 500
     MAX_COMPLETION_TOKENS = 160
 
+    def initialize(configuration = Configuration.current)
+      @configuration = configuration
+    end
+
     def name
       "openai"
     end
@@ -29,7 +33,7 @@ module ImageDescriptionProviders
       broadcast_status(image_core)
 
       unless api_key.present?
-        return fail_image(image_core, "OPENAI_API_KEY is required for OpenAI image description generation.")
+        return fail_image(image_core, "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY.")
       end
 
       description = normalize_description(request_description(image_core))
@@ -47,6 +51,8 @@ module ImageDescriptionProviders
     end
 
     private
+
+      attr_reader :configuration
 
       def request_description(image_core)
         uri = URI.join(base_url, "chat/completions")
@@ -137,15 +143,15 @@ module ImageDescriptionProviders
       end
 
       def base_url
-        (ENV["OPENAI_API_BASE_URL"].presence || DEFAULT_BASE_URL).to_s.chomp("/") + "/"
+        configuration.openai_base_url.to_s.chomp("/") + "/"
       end
 
       def api_key
-        ENV["OPENAI_API_KEY"].to_s
+        configuration.openai_api_key.to_s
       end
 
       def model
-        ENV["OPENAI_VISION_MODEL"].presence || DEFAULT_MODEL
+        configuration.openai_model.presence || DEFAULT_MODEL
       end
   end
 end

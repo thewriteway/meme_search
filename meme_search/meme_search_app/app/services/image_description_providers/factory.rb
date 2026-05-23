@@ -2,10 +2,10 @@
 
 module ImageDescriptionProviders
   class Factory
-    def self.build
-      case ENV.fetch("IMAGE_DESCRIPTION_PROVIDER", "local").to_s.downcase
+    def self.build(configuration = Configuration.current)
+      case configuration.provider.to_s.downcase
       when "openai"
-        OpenaiProvider.new
+        OpenaiProvider.new(configuration)
       else
         LocalProvider.new
       end
