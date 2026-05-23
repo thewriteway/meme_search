@@ -13,7 +13,7 @@ class GenerateImageDescriptionJobTest < ActiveJob::TestCase
       GenerateImageDescriptionJob.perform_now(image_core.id)
     end
 
-    provider.verify
+    assert_mock provider
   end
 
   test "does nothing when image no longer exists" do

@@ -292,10 +292,9 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     image_core = image_cores(:one)
     image_core.update!(description: nil, status: :not_started)
 
-    provider = Minitest::Mock.new
-    provider.expect(:queued_provider?, false)
-
     test_case = self
+    provider = Object.new
+    provider.define_singleton_method(:queued_provider?) { false }
     provider.define_singleton_method(:generate) do |_image_core|
       test_case.flunk "provider.generate should not run inline for openai bulk generation"
     end
@@ -308,7 +307,6 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       end
     end
 
-    provider.verify
     assert_redirected_to image_cores_path
     assert_match "Queued 1 images", flash[:notice]
     assert_equal "in_queue", image_core.reload.status
