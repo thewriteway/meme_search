@@ -1,7 +1,15 @@
 # frozen_string_literal: true
 
 module ImageDescriptionProviders
-  Result = Data.define(:success, :message, :queued) do
+  class Result
+    attr_reader :success, :message, :queued
+
+    def initialize(success:, message:, queued:)
+      @success = success
+      @message = message
+      @queued = queued
+    end
+
     def success?
       success
     end

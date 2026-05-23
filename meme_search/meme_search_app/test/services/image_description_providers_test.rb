@@ -28,6 +28,16 @@ class ImageDescriptionProvidersTest < ActiveSupport::TestCase
     end
   end
 
+  test "result exposes predicate helpers without relying on Ruby Data" do
+    result = ImageDescriptionProviders::Result.new(success: true, message: "Queued", queued: true)
+
+    assert result.success
+    assert result.success?
+    assert result.queued
+    assert result.queued?
+    assert_equal "Queued", result.message
+  end
+
   test "openai provider saves description and broadcasts on success" do
     description = "A meme with visible text and a joke."
 
