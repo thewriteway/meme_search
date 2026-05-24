@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_23_220000) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_24_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -39,6 +39,36 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_23_220000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["image_path_id"], name: "index_image_cores_on_image_path_id"
+  end
+
+  create_table "image_description_bulk_operations", force: :cascade do |t|
+    t.string "provider", null: false
+    t.boolean "provider_queued", default: true, null: false
+    t.integer "status", default: 0, null: false
+    t.integer "total_count", default: 0, null: false
+    t.jsonb "filter_params", default: {}, null: false
+    t.datetime "started_at", null: false
+    t.datetime "completed_at"
+    t.datetime "canceled_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "image_description_generation_attempts", force: :cascade do |t|
+    t.bigint "image_core_id", null: false
+    t.string "provider", null: false
+    t.integer "status", default: 0, null: false
+    t.jsonb "provider_settings", default: {}, null: false
+    t.text "error_message"
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "canceled_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "image_description_bulk_operation_id"
+    t.index ["image_core_id"], name: "index_generation_attempts_one_active_per_image", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["image_core_id"], name: "index_image_description_generation_attempts_on_image_core_id"
+    t.index ["image_description_bulk_operation_id"], name: "index_generation_attempts_on_bulk_operation_id"
   end
 
   create_table "image_embeddings", force: :cascade do |t|
@@ -213,6 +243,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_23_220000) do
   end
 
   add_foreign_key "image_cores", "image_paths"
+  add_foreign_key "image_description_generation_attempts", "image_cores"
+  add_foreign_key "image_description_generation_attempts", "image_description_bulk_operations", on_delete: :nullify
   add_foreign_key "image_embeddings", "image_cores"
   add_foreign_key "image_tags", "image_cores"
   add_foreign_key "image_tags", "tag_names"

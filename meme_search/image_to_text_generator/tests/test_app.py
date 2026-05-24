@@ -2,6 +2,7 @@ import subprocess
 import time
 import requests
 import os
+import sqlite3
 
 
 APP_START_CMD = ["python", "app/app.py", "testing"]  # Command for app start
@@ -91,7 +92,16 @@ def test_process_image():
         assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
 
         # Send in POST request with image_core_id, path to image, and 'test' model
-        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "./app/do_not_remove.jpg", "model": "test"})
+        response = requests.post(
+            SERVER_URL + "/add_job",
+            json={
+                "image_core_id": 0,
+                "image_path": "./app/do_not_remove.jpg",
+                "model": "test",
+                "attempt_id": 101,
+                "callback_token": "signed-token-101",
+            },
+        )
 
         # Verify response
         assert response.status_code == 200
@@ -103,7 +113,16 @@ def test_process_image():
         assert response.json() == {"queue_length": 1}, "Queue length is not 1"
 
         # Send in second POST request with image_core_id, path to image, and 'test' model
-        response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "./app/do_not_remove.jpg", "model": "test"})
+        response = requests.post(
+            SERVER_URL + "/add_job",
+            json={
+                "image_core_id": 1,
+                "image_path": "./app/do_not_remove.jpg",
+                "model": "test",
+                "attempt_id": 102,
+                "callback_token": "signed-token-102",
+            },
+        )
         assert response.status_code == 200
         assert response.json() == {"status": "Job added to queue"}
 
@@ -140,6 +159,57 @@ def test_process_image():
         dummy_process.wait()
 
 
+def test_add_and_remove_job_preserves_attempt_callback_fields():
+    """Test that optional attempt metadata is stored and sent on queue callbacks."""
+    app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    os.set_blocking(app_process.stderr.fileno(), False)
+    os.set_blocking(dummy_process.stderr.fileno(), False)
+
+    try:
+        assert wait_for_server(SERVER_URL, timeout=30), "Image to text server did not start in time"
+        assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
+
+        response = requests.post(
+            SERVER_URL + "/add_job",
+            json={
+                "image_core_id": 77,
+                "image_path": "./app/do_not_remove.jpg",
+                "model": "test",
+                "attempt_id": 177,
+                "callback_token": "signed-token-177",
+            },
+        )
+        assert response.status_code == 200
+
+        conn = sqlite3.connect("tests/db/job_queue.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT attempt_id, callback_token FROM jobs WHERE image_core_id = ?", (77,))
+        row = cursor.fetchone()
+        conn.close()
+        assert row == (177, "signed-token-177")
+
+        response = requests.delete(SERVER_URL + "/remove_job/77")
+        assert response.status_code == 200
+
+        time.sleep(1)
+        dummy_logs = ""
+        for _ in range(30):
+            line = dummy_process.stderr.readline()
+            if line:
+                dummy_logs += line
+
+        assert "'attempt_id': 177" in dummy_logs or '"attempt_id": 177' in dummy_logs
+        assert "signed-token-177" in dummy_logs
+
+    finally:
+        app_process.terminate()
+        app_process.wait()
+        dummy_process.terminate()
+        dummy_process.wait()
+
+
 # REMOVED: test_processing_florence_base() - too slow for CI (60s+, downloads 500MB AI model)
 # Real AI model testing is covered by unit tests (tests/unit/test_image_to_text_generator.py)
 # The 'test' model above provides sufficient integration test coverage
@@ -167,7 +237,13 @@ def test_missing_image_sends_failure_and_removes_job():
         # Submit job with a path to a file that doesn't exist
         response = requests.post(
             SERVER_URL + "/add_job",
-            json={"image_core_id": 999, "image_path": "./nonexistent/missing_image.jpg", "model": "test"}
+            json={
+                "image_core_id": 999,
+                "image_path": "./nonexistent/missing_image.jpg",
+                "model": "test",
+                "attempt_id": 1999,
+                "callback_token": "signed-token-1999",
+            }
         )
         assert response.status_code == 200
         assert response.json() == {"status": "Job added to queue"}
@@ -245,7 +321,13 @@ def test_corrupt_image_sends_failure_and_removes_job():
         # Submit job with corrupt image
         response = requests.post(
             SERVER_URL + "/add_job",
-            json={"image_core_id": 888, "image_path": corrupt_file.name, "model": "test"}
+            json={
+                "image_core_id": 888,
+                "image_path": corrupt_file.name,
+                "model": "test",
+                "attempt_id": 1888,
+                "callback_token": "signed-token-1888",
+            }
         )
         assert response.status_code == 200
 
@@ -275,68 +357,3 @@ def test_corrupt_image_sends_failure_and_removes_job():
         dummy_process.wait()
         # Clean up temp file
         os.unlink(corrupt_file.name)
-
-
-# def test_processing_smolvlm_256():
-#     """Test processing with 'SmolVLM-256M-Instruct' model."""
-#     app_process = subprocess.Popen(APP_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-#     dummy_process = subprocess.Popen(DUMMY_START_CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-#     os.set_blocking(app_process.stdout.fileno(), False)
-#     os.set_blocking(dummy_process.stdout.fileno(), False)
-
-#     try:
-#         # Start image to text serverserver
-#         assert wait_for_server(SERVER_URL), "Image to text server did not start in time"
-
-#         # Start dummy server to receive sender messages
-#         assert wait_for_server(DUMMY_URL), "Dummy server did not start in time"
-
-#         # Send in POST request with image_core_id, path to image, and 'test' model
-#         response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 0, "image_path": "./app/do_not_remove.jpg", "model": "SmolVLM-256M-Instruct"})
-
-#         # Verify response
-#         assert response.status_code == 200
-#         assert response.json() == {"status": "Job added to queue"}
-
-#         # Check queue
-#         response = requests.get(SERVER_URL + "/check_queue")
-#         assert response.status_code == 200
-#         assert response.json() == {"queue_length": 1}, "Queue length is not 1"
-
-#         # Send in second POST request with image_core_id, path to image, and 'test' model
-#         response = requests.post(SERVER_URL + "/add_job", json={"image_core_id": 1, "image_path": "./app/do_not_remove.jpg", "model": "SmolVLM-256M-Instruct"})
-#         assert response.status_code == 200
-#         assert response.json() == {"status": "Job added to queue"}
-
-#         # Check queue
-#         response = requests.get(SERVER_URL + "/check_queue")
-#         assert response.status_code == 200
-#         assert response.json() == {"queue_length": 2}, "Queue length is not 2"
-
-#         # Remove job
-#         response = requests.delete(SERVER_URL + "/remove_job/1")
-#         assert response.status_code == 200
-#         assert response.json() == {"status": "Job removed from queue"}
-
-#         # Check queue
-#         response = requests.get(SERVER_URL + "/check_queue")
-#         assert response.status_code == 200
-#         assert response.json() == {"queue_length": 1}, "Queue length is not 1"
-
-#         # Tail dummy server logs
-#         time.sleep(60)
-#         app_logs = ""
-#         for _ in range(40):
-#             logline = app_process.stderr.readline().strip()
-#             if isinstance(logline, str):
-#                 app_logs += logline
-#         print(app_logs)
-#         assert "status_sender successfully delivered" in app_logs, "status_sender failed"
-#         assert "description_sender successfully delivered" in app_logs, "description_sender failed"
-
-#     finally:
-#         app_process.terminate()  
-#         app_process.wait() 
-#         dummy_process.terminate()
-#         dummy_process.wait()

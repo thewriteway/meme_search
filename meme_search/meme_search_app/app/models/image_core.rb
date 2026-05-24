@@ -15,6 +15,8 @@ class ImageCore < ApplicationRecord
   # tag association + lookup scope
   belongs_to :image_path
   has_many :image_tags, dependent: :destroy
+  has_many :image_description_generation_attempts, dependent: :destroy
+  has_many :image_description_bulk_operations, through: :image_description_generation_attempts
   accepts_nested_attributes_for :image_tags, allow_destroy: true
 
   # tag lookup scope
@@ -49,6 +51,36 @@ class ImageCore < ApplicationRecord
 
   # before save create description embeddings
   # before_save :refresh_description_embeddings
+
+  def self.delete_all(*args)
+    ImageDescriptionGenerationAttempt.where(image_core_id: all.select(:id)).delete_all
+    super
+  end
+
+  def active_description_generation_attempt
+    image_description_generation_attempts.active.order(created_at: :desc).first
+  end
+
+  def start_description_generation_attempt!(provider:, provider_settings: {}, bulk_operation: nil)
+    with_lock do
+      active_attempt = active_description_generation_attempt
+      raise ActiveRecord::RecordInvalid, active_attempt if active_attempt.present?
+
+      image_description_generation_attempts.create!(
+        provider: provider,
+        provider_settings: provider_settings,
+        image_description_bulk_operation: bulk_operation,
+        status: :queued
+      )
+    end
+  end
+
+  def cancel_active_description_generation_attempt!
+    attempt = active_description_generation_attempt
+    return false unless attempt
+
+    attempt.cancel!
+  end
 
   def remove_image_text_job
     # send request

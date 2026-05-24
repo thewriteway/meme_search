@@ -1,9 +1,10 @@
+<% bulk_operation_active = ImageDescriptionBulkOperation.active.exists? %>
 <div
   data-controller="bulk-progress"
-  data-bulk-progress-session-active-value="<%= session[:bulk_operation].present? %>"
+  data-bulk-progress-operation-active-value="<%= bulk_operation_active %>"
   class="fixed bottom-8 right-8 w-96 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 z-50 transition-all duration-300"
   data-bulk-progress-target="overlay"
-  style="<%= 'display: none;' unless session[:bulk_operation].present? %>">
+  style="<%= 'display: none;' unless bulk_operation_active %>">
 
   <!-- Header -->
   <div class="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-700/50">

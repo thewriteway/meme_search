@@ -4,10 +4,12 @@ module ImageDescriptionProviders
   class Factory
     def self.build(configuration = Configuration.current)
       case configuration.provider.to_s.downcase
+      when "local", ""
+        LocalProvider.new
       when "openai"
         OpenaiProvider.new(configuration)
       else
-        LocalProvider.new
+        raise ArgumentError, "Unknown image description provider: #{configuration.provider}"
       end
     end
   end
