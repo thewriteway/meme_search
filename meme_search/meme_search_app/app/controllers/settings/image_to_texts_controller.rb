@@ -1,43 +1,70 @@
+# frozen_string_literal: true
+
 module Settings
   class ImageToTextsController < ApplicationController
-    # GET /image_to_texts or /image_to_texts.json
     def index
-      # return ordered by id
       @image_to_texts = ImageToText.order(id: :asc)
+      @provider_setting = DescriptionProviderSetting.current
+      @provider_configuration = ImageDescriptionProviders::Configuration.current
+      @provider_tab = params[:provider_tab].presence || @provider_setting.provider
     end
 
     def update_current
-      # Unset all "current" values
-      ImageToText.update_all(current: false)
+      selected_model = ImageToText.find(params[:current_id]) if params[:current_id].present?
 
-      # Set the selected "current" record
-      if params[:current_id].present?
-        begin
-          ImageToText.find(params[:current_id]).update(current: true)
-        rescue ActiveRecord::RecordNotFound => e
-          Rails.logger.warn "ImageToText record not found: #{params[:current_id]}"
-          # Continue gracefully - no model will be current
+      if selected_model.present?
+        ImageToText.transaction do
+          ImageToText.lock.where(current: true).load
+          DescriptionProviderSetting.current.update!(provider: "local")
+          ImageToText.update_all(current: false)
+          ImageToText.where(id: selected_model.id).update_all(current: true, updated_at: Time.current)
         end
+      else
+        DescriptionProviderSetting.current.update!(provider: "local")
       end
 
-      # Get name of the current model
       current_model = ImageToText.find_by(current: true)&.name
 
-      respond_to do |format|
-        flash = { notice: "Current model set to: #{current_model}" }
-        format.html { redirect_to [ :settings, :image_to_texts ], flash: flash }
-      end
+      redirect_to settings_image_to_texts_path(provider_tab: "local"), notice: "Current model set to: #{current_model}"
+    rescue ActiveRecord::RecordNotFound
+      DescriptionProviderSetting.current.update!(provider: "local")
+      redirect_to settings_image_to_texts_path(provider_tab: "local"), alert: "Selected local model was not found."
+    end
+
+    def save_openai_settings
+      setting = DescriptionProviderSetting.current
+      attrs = description_provider_setting_params
+      setting.provider = "openai"
+      setting.openai_base_url = attrs[:openai_base_url]
+      setting.openai_model = attrs[:openai_model]
+      setting.openai_api_key = attrs[:openai_api_key] if attrs[:openai_api_key].present?
+      setting.save!
+
+      redirect_to settings_image_to_texts_path(provider_tab: "openai"), notice: "OpenAI-compatible provider settings saved."
+    rescue ActiveRecord::RecordInvalid => e
+      redirect_to settings_image_to_texts_path(provider_tab: "openai"), alert: e.record.errors.full_messages.to_sentence
+    end
+
+    def clear_openai_key
+      setting = DescriptionProviderSetting.current
+      setting.clear_openai_api_key
+      setting.openai_last_test_status = "not_tested"
+      setting.openai_last_tested_at = nil
+      setting.openai_last_test_error = nil
+      setting.save!
+
+      redirect_to settings_image_to_texts_path(provider_tab: "openai"), notice: "Saved OpenAI API key cleared."
+    end
+
+    def test_openai_settings
+      redirect_to settings_image_to_texts_path(provider_tab: "openai"),
+                  notice: "OpenAI connection testing will be available after provider test support is added."
     end
 
     private
-      # Use callbacks to share common setup or constraints between actions.
-      def set_image_to_text
-        @image_to_text = ImageToText.find(params[:id])
-      end
 
-      # Only allow a list of trusted parameters through.
-      def image_to_text_params
-        params.require(:image_to_text).permit(:name, :description)
+      def description_provider_setting_params
+        params.require(:description_provider_setting).permit(:openai_base_url, :openai_model, :openai_api_key)
       end
   end
 end
