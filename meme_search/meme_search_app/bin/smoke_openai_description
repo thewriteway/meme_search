@@ -26,6 +26,11 @@ load_env_file(APP_ROOT.join(".env"))
 require_relative "../config/environment"
 
 setting = DescriptionProviderSetting.current
+original_setting_attributes = setting.attributes.slice("provider", "openai_base_url", "openai_model")
+at_exit do
+  setting.update!(original_setting_attributes) if setting&.persisted?
+end
+
 setting.update!(
   provider: "openai",
   openai_base_url: ENV["OPENAI_API_BASE_URL"].presence || setting.openai_base_url,

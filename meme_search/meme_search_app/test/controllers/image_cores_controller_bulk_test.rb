@@ -586,6 +586,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     bulk_provider = Minitest::Mock.new
     bulk_provider.expect(:queued_provider?, false)
     bulk_provider.expect(:queued_provider?, false)
+    bulk_provider.expect(:queued_provider?, false)
 
     ImageDescriptionProviders::Factory.stub(:build, bulk_provider) do
       post bulk_generate_descriptions_image_cores_url
@@ -596,9 +597,10 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     unrelated_image = setup_bulk_test_images(count: 1, with_descriptions: false).first
     unrelated_image.update!(status: :in_queue)
 
-    cancel_provider = Minitest::Mock.new
-    cancel_provider.expect(:queued_provider?, false)
-    cancel_provider.expect(:queued_provider?, false)
+    cancel_provider = Object.new
+    cancel_provider.define_singleton_method(:queued_provider?) do
+      flunk "cancel should use the provider mode captured in the bulk operation session"
+    end
 
     ImageDescriptionProviders::Factory.stub(:build, cancel_provider) do
       post bulk_operation_cancel_image_cores_url, as: :json
@@ -612,7 +614,6 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     end
     assert_equal "in_queue", unrelated_image.reload.status
     assert_nil session[:bulk_operation], "Session should be cleared after cancel"
-    cancel_provider.verify
   end
 
   # Test 4.2: Handle no active session

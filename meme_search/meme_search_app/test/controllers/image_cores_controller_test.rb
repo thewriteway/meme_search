@@ -301,7 +301,17 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
     with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
       ImageDescriptionProviders::Factory.stub(:build, provider) do
-        assert_enqueued_with(job: GenerateImageDescriptionJob, args: [ image_core.id ]) do
+        assert_enqueued_with(
+          job: GenerateImageDescriptionJob,
+          args: [
+            image_core.id,
+            {
+              "provider" => "openai",
+              "openai_base_url" => DescriptionProviderSetting::DEFAULT_OPENAI_BASE_URL,
+              "openai_model" => DescriptionProviderSetting::DEFAULT_OPENAI_MODEL
+            }
+          ]
+        ) do
           post bulk_generate_descriptions_image_cores_url
         end
       end
@@ -310,6 +320,37 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to image_cores_path
     assert_match "Queued 1 images", flash[:notice]
     assert_equal "in_queue", image_core.reload.status
+  end
+
+  test "bulk operation cancel uses provider mode captured when operation was queued" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    test_case = self
+    provider = Object.new
+    provider.define_singleton_method(:queued_provider?) { false }
+    provider.define_singleton_method(:generate) do |_queued_image|
+      test_case.flunk "provider.generate should not run inline for openai bulk generation"
+    end
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post bulk_generate_descriptions_image_cores_url
+      end
+    end
+
+    assert_equal "in_queue", image_core.reload.status
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "local") do
+      Net::HTTP.stub(:new, ->(_host, _port) { flunk "local queue removal should not run for an OpenAI bulk operation" }) do
+        post bulk_operation_cancel_image_cores_url, as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal 1, response.parsed_body["cancelled_count"]
+    assert_equal "not_started", image_core.reload.status
   end
 
   # Generate stopper tests

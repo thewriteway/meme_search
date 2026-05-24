@@ -71,7 +71,7 @@ class ImageCoresController < ApplicationController
     end
     status = @image_core.status
     if status == "in_queue"
-      if image_description_provider.queued_provider?
+      if queued_provider_for_cancel?(@image_core)
         # update status of instance
         @image_core.status = 4
         @image_core.save!
@@ -120,11 +120,16 @@ class ImageCoresController < ApplicationController
       0, ""
     )
 
+    configuration = ImageDescriptionProviders::Configuration.current
+    provider = ImageDescriptionProviders::Factory.build(configuration)
+    provider_job_options = configuration.job_options
+
     # Store operation metadata in session
     session[:bulk_operation] = {
       total_count: images_without_descriptions.count,
       started_at: Time.current.to_i,
       image_ids: images_without_descriptions.pluck(:id),  # Track specific images in this operation
+      provider_queued: provider.queued_provider?,
       filter_params: {
         selected_tag_names: params[:selected_tag_names],
         selected_path_names: params[:selected_path_names],
@@ -135,7 +140,6 @@ class ImageCoresController < ApplicationController
     # Queue all images for description generation
     queued_count = 0
     failed_count = 0
-    provider = image_description_provider
 
     images_without_descriptions.each do |image_core|
       if provider.queued_provider?
@@ -148,7 +152,7 @@ class ImageCoresController < ApplicationController
       else
         begin
           image_core.update!(status: :in_queue)
-          GenerateImageDescriptionJob.perform_later(image_core.id)
+          GenerateImageDescriptionJob.perform_later(image_core.id, provider_job_options)
           queued_count += 1
         rescue StandardError => e
           Rails.logger.error "Failed to enqueue image description job for image #{image_core.id}: #{e.class}: #{e.message}"
@@ -235,7 +239,7 @@ class ImageCoresController < ApplicationController
 
       in_queue_images.each do |image_core|
         begin
-          if image_description_provider.queued_provider?
+          if queued_provider_for_cancel?(image_core)
             # Update status to removing
             image_core.update(status: 4)
 
@@ -402,6 +406,19 @@ class ImageCoresController < ApplicationController
 
     def image_description_provider
       @image_description_provider ||= ImageDescriptionProviders::Factory.build
+    end
+
+    def queued_provider_for_cancel?(image_core)
+      return image_description_provider.queued_provider? unless session[:bulk_operation].present?
+
+      image_ids = session[:bulk_operation][:image_ids] || session[:bulk_operation]["image_ids"] || []
+      return image_description_provider.queued_provider? unless image_ids.map(&:to_i).include?(image_core.id)
+
+      provider_queued = session[:bulk_operation][:provider_queued]
+      provider_queued = session[:bulk_operation]["provider_queued"] if provider_queued.nil?
+      return image_description_provider.queued_provider? if provider_queued.nil?
+
+      ActiveModel::Type::Boolean.new.cast(provider_queued)
     end
 
     def get_filtered_image_cores(filter_params = nil)

@@ -77,6 +77,49 @@ class ImageDescriptionProvidersConfigurationTest < ActiveSupport::TestCase
     end
   end
 
+  test "job options pin provider and openai runtime values without serializing api key" do
+    with_env(
+      "IMAGE_DESCRIPTION_PROVIDER" => "openai",
+      "OPENAI_API_BASE_URL" => "http://env.example/v1",
+      "OPENAI_VISION_MODEL" => "gpt-4.1",
+      "OPENAI_API_KEY" => "sk-env-1234"
+    ) do
+      options = ImageDescriptionProviders::Configuration.current.job_options
+
+      assert_equal(
+        {
+          "provider" => "openai",
+          "openai_base_url" => "http://env.example/v1",
+          "openai_model" => "gpt-4.1"
+        },
+        options
+      )
+      assert_not_includes options.keys, "openai_api_key"
+    end
+  end
+
+  test "job options override later provider and model changes while resolving current key" do
+    options = {
+      "provider" => "openai",
+      "openai_base_url" => "http://queued.example/v1",
+      "openai_model" => "gpt-queued"
+    }
+
+    with_env(
+      "IMAGE_DESCRIPTION_PROVIDER" => "local",
+      "OPENAI_API_BASE_URL" => "http://env.example/v1",
+      "OPENAI_VISION_MODEL" => "gpt-env",
+      "OPENAI_API_KEY" => "sk-env-1234"
+    ) do
+      config = ImageDescriptionProviders::Configuration.from_job_options(options)
+
+      assert_equal "openai", config.provider
+      assert_equal "http://queued.example/v1", config.openai_base_url
+      assert_equal "gpt-queued", config.openai_model
+      assert_equal "sk-env-1234", config.openai_api_key
+    end
+  end
+
   private
 
     def with_env(values)

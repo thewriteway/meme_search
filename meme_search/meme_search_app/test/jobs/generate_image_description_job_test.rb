@@ -9,8 +9,31 @@ class GenerateImageDescriptionJobTest < ActiveJob::TestCase
     provider = Minitest::Mock.new
     provider.expect(:generate, ImageDescriptionProviders::Result.new(success: true, message: "Generated description.", queued: false), [ image_core ])
 
-    ImageDescriptionProviders::Factory.stub(:build, provider) do
+    ImageDescriptionProviders::Factory.stub(:build, ->(_configuration) { provider }) do
       GenerateImageDescriptionJob.perform_now(image_core.id)
+    end
+
+    assert_mock provider
+  end
+
+  test "uses provider settings pinned when the job was enqueued" do
+    image_core = image_cores(:one)
+    image_core.update!(status: :in_queue)
+    provider = Minitest::Mock.new
+    provider.expect(:generate, ImageDescriptionProviders::Result.new(success: true, message: "Generated description.", queued: false), [ image_core ])
+    provider_options = {
+      "provider" => "openai",
+      "openai_base_url" => "http://queued.example/v1",
+      "openai_model" => "gpt-queued"
+    }
+
+    ImageDescriptionProviders::Factory.stub(:build, ->(configuration) {
+      assert_equal "openai", configuration.provider
+      assert_equal "http://queued.example/v1", configuration.openai_base_url
+      assert_equal "gpt-queued", configuration.openai_model
+      provider
+    }) do
+      GenerateImageDescriptionJob.perform_now(image_core.id, provider_options)
     end
 
     assert_mock provider
