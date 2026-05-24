@@ -27,7 +27,19 @@ namespace :db do
       puts "Cleaning test database..."
       # Use delete_all to avoid callbacks and foreign key issues
       # Delete in reverse dependency order
-      ActiveRecord::Base.connection.execute("TRUNCATE TABLE image_tags, image_embeddings, image_cores, tag_names, image_paths, image_to_texts RESTART IDENTITY CASCADE")
+      ActiveRecord::Base.connection.execute(
+        "TRUNCATE TABLE " \
+          "image_tags, " \
+          "image_embeddings, " \
+          "image_description_generation_attempts, " \
+          "image_description_bulk_operations, " \
+          "image_cores, " \
+          "tag_names, " \
+          "image_paths, " \
+          "image_to_texts, " \
+          "description_provider_settings " \
+          "RESTART IDENTITY CASCADE"
+      )
 
       puts "Test database cleaned!"
     end
