@@ -25,13 +25,17 @@ load_env_file(APP_ROOT.join(".env"))
 
 require_relative "../config/environment"
 
-unless ENV["OPENAI_API_KEY"].present?
-  abort "OPENAI_API_KEY is required. Example: OPENAI_API_KEY=sk-... bin/smoke_openai_description"
-end
+setting = DescriptionProviderSetting.current
+setting.update!(
+  provider: "openai",
+  openai_base_url: ENV["OPENAI_API_BASE_URL"].presence || setting.openai_base_url,
+  openai_model: ENV["OPENAI_VISION_MODEL"].presence || setting.openai_model
+)
 
-ENV["IMAGE_DESCRIPTION_PROVIDER"] = "openai"
-ENV["OPENAI_API_BASE_URL"] = ENV["OPENAI_API_BASE_URL"].presence || ImageDescriptionProviders::OpenaiProvider::DEFAULT_BASE_URL
-ENV["OPENAI_VISION_MODEL"] = ENV["OPENAI_VISION_MODEL"].presence || ImageDescriptionProviders::OpenaiProvider::DEFAULT_MODEL
+configuration = ImageDescriptionProviders::Configuration.current
+unless configuration.openai_api_key.present?
+  abort "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY."
+end
 
 def existing_sample_image_core
   ImageCore.includes(:image_path).find_each.find do |image_core|
@@ -58,7 +62,7 @@ def sample_image_core
   end
 end
 
-puts "Running OpenAI live smoke test with #{ENV.fetch("OPENAI_VISION_MODEL")}."
+puts "Running OpenAI live smoke test with #{configuration.openai_model}."
 
 result = nil
 
