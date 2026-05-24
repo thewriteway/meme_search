@@ -10,6 +10,9 @@ module ImageDescriptionProviders
     DEFAULT_BASE_URL = "https://api.openai.com/v1"
     DEFAULT_MODEL = "gpt-4o-mini"
     PROMPT = "Describe this meme for semantic search. Include visible text, objects, people, setting, and the joke or sentiment. Keep it concise."
+    TEST_IMAGE_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAA+UlEQVR42u3aQQ7CIBCF4XcJz9K1R/DeXqdp0pUujYl0GBh5DC9hyeL/YqOVAftxTr0ggAACCCAANeB83mYCvHMtiw5g7I6QYFR6LwbGprczQFLvNoCn3mcAVb3DALb6WgMI66sM4Ky3G0BbbzQsABhYbzF0A2z3R1WWfX8TwJjyubrvLxuWB3zVXDbV7m8C2J/m6E+gYBAg/lvoT4BRvwYC0AKo6gsGPUICCCDAr1c0y4oFlA3uaAcm5HXal0IKcD/Z4YCF/tTzAnSwRQCY/mw0w+l0hvlAhglNhhlZhillhjlxhkl9krsSSW6r5LkvpCtnAgggwGqAFzX/iQwCblWQAAAAAElFTkSuQmCC"
+    TEST_PROMPT = "Reply with ok if you can inspect this image."
+    UNSUPPORTED_TEST_RESPONSE_MESSAGE = "OpenAI connection test returned an unsupported response."
     MAX_DESCRIPTION_LENGTH = ImageCore.validators_on(:description)
       .grep(ActiveModel::Validations::LengthValidator)
       .filter_map { |validator| validator.options[:maximum] }
@@ -26,6 +29,55 @@ module ImageDescriptionProviders
 
     def queued_provider?
       false
+    end
+
+    def test_connection
+      if api_key.blank?
+        return Result.new(
+          success: false,
+          message: "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY.",
+          queued: false
+        )
+      end
+
+      uri = URI.join(base_url, "chat/completions")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == "https"
+      http.open_timeout = 10
+      http.read_timeout = 30
+
+      request = Net::HTTP::Post.new(uri)
+      request["Authorization"] = "Bearer #{api_key}"
+      request["Content-Type"] = "application/json"
+      request.body = {
+        model: model,
+        max_tokens: 5,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: TEST_PROMPT },
+              { type: "image_url", image_url: { url: TEST_IMAGE_DATA_URL } }
+            ]
+          }
+        ]
+      }.to_json
+
+      response = http.request(request)
+      if response.is_a?(Net::HTTPSuccess)
+        content = JSON.parse(response.body).dig("choices", 0, "message", "content").to_s.strip
+        return Result.new(success: true, message: "OpenAI connection test passed.", queued: false) if content.present?
+
+        return Result.new(success: false, message: UNSUPPORTED_TEST_RESPONSE_MESSAGE, queued: false)
+      end
+
+      Result.new(success: false, message: "OpenAI vision API error: #{response.code} #{response.message}", queued: false)
+    rescue JSON::ParserError
+      Result.new(success: false, message: UNSUPPORTED_TEST_RESPONSE_MESSAGE, queued: false)
+    rescue Net::OpenTimeout, Net::ReadTimeout
+      Result.new(success: false, message: "OpenAI vision API request timed out.", queued: false)
+    rescue StandardError => e
+      Result.new(success: false, message: e.message, queued: false)
     end
 
     def generate(image_core)

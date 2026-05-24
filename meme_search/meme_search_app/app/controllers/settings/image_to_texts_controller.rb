@@ -38,6 +38,9 @@ module Settings
       setting.openai_base_url = attrs[:openai_base_url]
       setting.openai_model = attrs[:openai_model]
       setting.openai_api_key = attrs[:openai_api_key] if attrs[:openai_api_key].present?
+      setting.openai_last_test_status = "not_tested"
+      setting.openai_last_tested_at = nil
+      setting.openai_last_test_error = nil
       setting.save!
 
       redirect_to settings_image_to_texts_path(provider_tab: "openai"), notice: "OpenAI-compatible provider settings saved."
@@ -57,8 +60,19 @@ module Settings
     end
 
     def test_openai_settings
-      redirect_to settings_image_to_texts_path(provider_tab: "openai"),
-                  notice: "OpenAI connection testing will be available after provider test support is added."
+      setting = DescriptionProviderSetting.current
+      result = ImageDescriptionProviders::OpenaiProvider.new.test_connection
+
+      setting.openai_last_test_status = result.success? ? "passed" : "failed"
+      setting.openai_last_tested_at = Time.current
+      setting.openai_last_test_error = result.success? ? nil : result.message
+      setting.save!
+
+      if result.success?
+        redirect_to settings_image_to_texts_path(provider_tab: "openai"), notice: result.message
+      else
+        redirect_to settings_image_to_texts_path(provider_tab: "openai"), alert: result.message
+      end
     end
 
     private

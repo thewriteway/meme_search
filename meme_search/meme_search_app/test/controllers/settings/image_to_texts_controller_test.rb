@@ -94,6 +94,31 @@ class Settings::ImageToTextsControllerTest < ActionDispatch::IntegrationTest
     assert_match "Openai model is not included in the list", flash[:alert]
   end
 
+  test "save_openai_settings resets stale connection test status" do
+    setting = DescriptionProviderSetting.current
+    setting.update!(
+      provider: "openai",
+      openai_base_url: "https://api.openai.com/v1",
+      openai_model: "gpt-4o-mini",
+      openai_last_test_status: "passed",
+      openai_last_tested_at: Time.current,
+      openai_last_test_error: nil
+    )
+
+    post save_openai_settings_settings_image_to_texts_path, params: {
+      description_provider_setting: {
+        openai_base_url: "https://api.openai.com/v1",
+        openai_model: "gpt-4.1-mini",
+        openai_api_key: ""
+      }
+    }
+
+    setting.reload
+    assert_equal "not_tested", setting.openai_last_test_status
+    assert_nil setting.openai_last_tested_at
+    assert_nil setting.openai_last_test_error
+  end
+
   test "clear_openai_key removes saved key" do
     setting = DescriptionProviderSetting.current
     setting.openai_api_key = "sk-controller-1234abcd"
@@ -113,9 +138,165 @@ class Settings::ImageToTextsControllerTest < ActionDispatch::IntegrationTest
     assert_nil setting.openai_last_test_error
   end
 
-  test "test_openai_settings redirects to OpenAI provider tab" do
-    post test_openai_settings_settings_image_to_texts_path
+  test "test_openai_settings records passed status" do
+    with_openai_env_cleared do
+      setting = DescriptionProviderSetting.current
+      setting.update!(provider: "openai", openai_base_url: "http://openai.test/v1", openai_model: "gpt-4o-mini")
+      setting.openai_api_key = "sk-controller-1234abcd"
+      setting.save!
 
-    assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .with { |request| openai_test_request_valid?(request) }
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: { content: "ok" } } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      post test_openai_settings_settings_image_to_texts_path
+
+      assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      setting.reload
+      assert_equal "passed", setting.openai_last_test_status
+      assert_not_nil setting.openai_last_tested_at
+      assert_nil setting.openai_last_test_error
+    end
   end
+
+  test "test_openai_settings records failed status for invalid JSON success response" do
+    with_openai_env_cleared do
+      setting = DescriptionProviderSetting.current
+      setting.update!(provider: "openai", openai_base_url: "http://openai.test/v1", openai_model: "gpt-4o-mini")
+      setting.openai_api_key = "sk-controller-1234abcd"
+      setting.save!
+
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .to_return(status: 200, body: "not json", headers: { "Content-Type" => "application/json" })
+
+      post test_openai_settings_settings_image_to_texts_path
+
+      assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      setting.reload
+      assert_equal "failed", setting.openai_last_test_status
+      assert_equal "OpenAI connection test returned an unsupported response.", setting.openai_last_test_error
+    end
+  end
+
+  test "test_openai_settings records failed status for blank success response content" do
+    with_openai_env_cleared do
+      setting = DescriptionProviderSetting.current
+      setting.update!(provider: "openai", openai_base_url: "http://openai.test/v1", openai_model: "gpt-4o-mini")
+      setting.openai_api_key = "sk-controller-1234abcd"
+      setting.save!
+
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: { content: "   " } } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      post test_openai_settings_settings_image_to_texts_path
+
+      assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      setting.reload
+      assert_equal "failed", setting.openai_last_test_status
+      assert_equal "OpenAI connection test returned an unsupported response.", setting.openai_last_test_error
+    end
+  end
+
+  test "test_openai_settings records failed status for missing success response content" do
+    with_openai_env_cleared do
+      setting = DescriptionProviderSetting.current
+      setting.update!(provider: "openai", openai_base_url: "http://openai.test/v1", openai_model: "gpt-4o-mini")
+      setting.openai_api_key = "sk-controller-1234abcd"
+      setting.save!
+
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: {} } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      post test_openai_settings_settings_image_to_texts_path
+
+      assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      setting.reload
+      assert_equal "failed", setting.openai_last_test_status
+      assert_equal "OpenAI connection test returned an unsupported response.", setting.openai_last_test_error
+    end
+  end
+
+  test "test_openai_settings records failed status" do
+    with_openai_env_cleared do
+      setting = DescriptionProviderSetting.current
+      setting.update!(provider: "openai", openai_base_url: "http://openai.test/v1", openai_model: "gpt-4o-mini")
+      setting.openai_api_key = "sk-controller-1234abcd"
+      setting.save!
+
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .to_return(status: 429, body: { error: { message: "rate limited" } }.to_json)
+
+      post test_openai_settings_settings_image_to_texts_path
+
+      assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      setting.reload
+      assert_equal "failed", setting.openai_last_test_status
+      assert_match "429", setting.openai_last_test_error
+    end
+  end
+
+  test "test_openai_settings records missing key without sending request" do
+    with_openai_env_cleared do
+      setting = DescriptionProviderSetting.current
+      setting.update!(provider: "openai", openai_base_url: "http://openai.test/v1", openai_model: "gpt-4o-mini")
+      setting.clear_openai_api_key
+      setting.save!
+
+      post test_openai_settings_settings_image_to_texts_path
+
+      assert_redirected_to settings_image_to_texts_path(provider_tab: "openai")
+      setting.reload
+      assert_equal "failed", setting.openai_last_test_status
+      assert_match "OPENAI_API_KEY", setting.openai_last_test_error
+      assert_not_requested :post, "http://openai.test/v1/chat/completions"
+    end
+  end
+
+  private
+
+    def with_openai_env_cleared(&block)
+      with_env({
+        "IMAGE_DESCRIPTION_PROVIDER" => nil,
+        "OPENAI_API_BASE_URL" => nil,
+        "OPENAI_API_KEY" => nil,
+        "OPENAI_VISION_MODEL" => nil
+      }, &block)
+    end
+
+    def with_env(values)
+      old_values = values.keys.to_h { |key| [ key, ENV[key] ] }
+      values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+      yield
+    ensure
+      old_values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+    end
+
+    def openai_test_request_valid?(request)
+      body = JSON.parse(request.body)
+      content = body.dig("messages", 0, "content")
+      image_url = content&.find { |item| item["type"] == "image_url" }&.dig("image_url", "url")
+
+      request.headers["Authorization"] == "Bearer sk-controller-1234abcd" &&
+        body["model"] == "gpt-4o-mini" &&
+        body["max_tokens"] == 5 &&
+        content.any? { |item| item["type"] == "text" } &&
+        image_url&.start_with?("data:image/png;base64,") &&
+        image_url != "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/ay+K6EAAAAASUVORK5CYII="
+    end
 end
