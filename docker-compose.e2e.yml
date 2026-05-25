@@ -21,8 +21,8 @@ services:
 
   rails-app:
     build:
-      context: ./meme_search/meme_search_app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./meme_search/meme_search_app/Dockerfile
     container_name: meme_search_e2e_rails
     environment:
       RAILS_ENV: production
