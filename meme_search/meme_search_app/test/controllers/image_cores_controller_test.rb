@@ -2,6 +2,8 @@ require "test_helper"
 require "minitest/mock"
 
 class ImageCoresControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   def setup
     @image_core = image_cores(:one)
     @image_path = image_paths(:one)
@@ -221,15 +223,10 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       current: true
     )
 
-    mock_response = Minitest::Mock.new
-    mock_response.expect(:is_a?, true, [ Net::HTTPSuccess ])
+    stub_request(:post, "http://image_to_text_generator:8000/add_job")
+      .to_return(status: 200, body: '{"status":"queued"}', headers: { "Content-Type" => "application/json" })
 
-    mock_http = Minitest::Mock.new
-    mock_http.expect(:request, mock_response, [ Net::HTTP::Post ])
-
-    Net::HTTP.stub(:new, mock_http) do
-      post generate_description_image_core_url(@image_core)
-    end
+    post generate_description_image_core_url(@image_core)
 
     @image_core.reload
     assert_equal "in_queue", @image_core.status
@@ -261,17 +258,99 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       current: true
     )
 
-    mock_response = Minitest::Mock.new
-    mock_response.expect(:is_a?, false, [ Net::HTTPSuccess ])
+    stub_request(:post, "http://image_to_text_generator:8000/add_job")
+      .to_return(status: 503, body: '{"error":"offline"}', headers: { "Content-Type" => "application/json" })
 
-    mock_http = Minitest::Mock.new
-    mock_http.expect(:request, mock_response, [ Net::HTTP::Post ])
+    post generate_description_image_core_url(@image_core)
+    assert_redirected_to root_path
+    assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
+    assert_equal "failed", @image_core.reload.status
+  end
 
-    Net::HTTP.stub(:new, mock_http) do
-      post generate_description_image_core_url(@image_core)
-      assert_redirected_to root_path
-      assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
+  test "single image generate description runs openai provider immediately" do
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+    result = ImageDescriptionProviders::Result.new(success: true, message: "Generated description.", queued: false)
+    provider = Minitest::Mock.new
+    provider.expect(:generate, result, [ image_core ])
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        assert_no_enqueued_jobs do
+          post generate_description_image_core_url(image_core)
+        end
+      end
     end
+
+    assert_redirected_to root_path
+    assert_equal "Generated description.", flash[:notice]
+    provider.verify
+  end
+
+  test "bulk generate descriptions enqueues jobs for openai provider without calling api inline" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    test_case = self
+    provider = Object.new
+    provider.define_singleton_method(:queued_provider?) { false }
+    provider.define_singleton_method(:generate) do |_image_core|
+      test_case.flunk "provider.generate should not run inline for openai bulk generation"
+    end
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        assert_enqueued_with(
+          job: GenerateImageDescriptionJob,
+          args: [
+            image_core.id,
+            {
+              "provider" => "openai",
+              "openai_base_url" => DescriptionProviderSetting::DEFAULT_OPENAI_BASE_URL,
+              "openai_model" => DescriptionProviderSetting::DEFAULT_OPENAI_MODEL
+            }
+          ]
+        ) do
+          post bulk_generate_descriptions_image_cores_url
+        end
+      end
+    end
+
+    assert_redirected_to image_cores_path
+    assert_match "Queued 1 images", flash[:notice]
+    assert_equal "in_queue", image_core.reload.status
+  end
+
+  test "bulk operation cancel uses provider mode captured when operation was queued" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    test_case = self
+    provider = Object.new
+    provider.define_singleton_method(:queued_provider?) { false }
+    provider.define_singleton_method(:generate) do |_queued_image|
+      test_case.flunk "provider.generate should not run inline for openai bulk generation"
+    end
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post bulk_generate_descriptions_image_cores_url
+      end
+    end
+
+    assert_equal "in_queue", image_core.reload.status
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "local") do
+      Net::HTTP.stub(:new, ->(_host, _port) { flunk "local queue removal should not run for an OpenAI bulk operation" }) do
+        post bulk_operation_cancel_image_cores_url, as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal 1, response.parsed_body["cancelled_count"]
+    assert_equal "not_started", image_core.reload.status
   end
 
   # Generate stopper tests
@@ -292,6 +371,23 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
     @image_core.reload
     assert_equal "removing", @image_core.status
+  end
+
+  test "generate_stopper should cancel openai queued job locally" do
+    @image_core.update!(status: :in_queue)
+    provider = Minitest::Mock.new
+    provider.expect(:queued_provider?, false)
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post generate_stopper_image_core_url(@image_core)
+      end
+    end
+
+    provider.verify
+    assert_redirected_to root_path
+    assert_equal "Removed from process queue.", flash[:notice]
+    assert_equal "not_started", @image_core.reload.status
   end
 
   test "generate_stopper should not remove if not in_queue" do
@@ -619,4 +715,18 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     # Rails catches RecordNotFound and returns 404
     assert_response :not_found
   end
+
+  private
+
+    def with_env(values)
+      old_values = values.keys.to_h { |key| [ key, ENV[key] ] }
+      values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+      yield
+    ensure
+      old_values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+    end
 end

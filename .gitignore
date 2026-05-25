@@ -13,6 +13,8 @@ meme_search/db_data
 
 # Temporary planning/documentation files
 plans/temp*
+docs/superpowers/plans/
+.superpowers/
 
 # Test Coverage
 **/.coverage

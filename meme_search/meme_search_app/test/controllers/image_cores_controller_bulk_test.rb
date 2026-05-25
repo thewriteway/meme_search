@@ -580,6 +580,42 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     assert_nil session[:bulk_operation], "Session should be cleared after cancel"
   end
 
+  test "bulk_operation_cancel should cancel openai jobs locally" do
+    images = setup_bulk_test_images(count: 2, with_descriptions: false)
+
+    bulk_provider = Minitest::Mock.new
+    bulk_provider.expect(:queued_provider?, false)
+    bulk_provider.expect(:queued_provider?, false)
+    bulk_provider.expect(:queued_provider?, false)
+
+    ImageDescriptionProviders::Factory.stub(:build, bulk_provider) do
+      post bulk_generate_descriptions_image_cores_url
+    end
+
+    assert_redirected_to image_cores_path
+    bulk_provider.verify
+    unrelated_image = setup_bulk_test_images(count: 1, with_descriptions: false).first
+    unrelated_image.update!(status: :in_queue)
+
+    cancel_provider = Object.new
+    cancel_provider.define_singleton_method(:queued_provider?) do
+      flunk "cancel should use the provider mode captured in the bulk operation session"
+    end
+
+    ImageDescriptionProviders::Factory.stub(:build, cancel_provider) do
+      post bulk_operation_cancel_image_cores_url, as: :json
+    end
+
+    assert_response :success
+    data = parse_status_response(response)
+    assert_equal 2, data["cancelled_count"]
+    images.each do |image|
+      assert_equal "not_started", image.reload.status
+    end
+    assert_equal "in_queue", unrelated_image.reload.status
+    assert_nil session[:bulk_operation], "Session should be cleared after cancel"
+  end
+
   # Test 4.2: Handle no active session
   test "bulk_operation_cancel should handle no active session gracefully" do
     # No session data

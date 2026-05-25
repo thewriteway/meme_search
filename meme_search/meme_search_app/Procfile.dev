@@ -1,2 +1,3 @@
 web: bin/rails server
+jobs: bin/jobs
 # css: bin/rails tailwindcss:watch  # Disabled due to macOS Sequoia compatibility issue - manually run: bin/rails tailwindcss:build

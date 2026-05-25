@@ -45,30 +45,14 @@ class ImageCoresController < ApplicationController
   def generate_description
     status = @image_core.status
     if status != "in_queue" && status != "processing"
-      # update status of instance
-      @image_core.status = 1
-      @image_core.save
-
-      # get current model
-      current_model = ImageToText.find_by(current: true)
-
-      # send request
-      uri = URI("http://image_to_text_generator:8000/add_job")
-      http = Net::HTTP.new(uri.host, uri.port)
-
-      # Try to make a request to the first URI
-      request = Net::HTTP::Post.new(uri)
-      request["Content-Type"] = "application/json"
-      data = { image_core_id: @image_core.id, image_path: @image_core.image_path.name + "/" + @image_core.name, model: current_model.name }
-      request.body = data.to_json
-      response = http.request(request)
+      result = image_description_provider.generate(@image_core)
 
       respond_to do |format|
-        if response.is_a?(Net::HTTPSuccess)
-          # flash[:notice] = "Image added to queue for automatic description generation."
-          # format.html { redirect_back_or_to root_path }
+        if result.success?
+          flash[:notice] = result.message if result.message.present?
+          format.html { redirect_back_or_to root_path }
         else
-          flash[:alert] = "Cannot generate description, your image to text genertaor is offline!"
+          flash[:alert] = result.message
           format.html { redirect_back_or_to root_path }
         end
       end
@@ -87,25 +71,33 @@ class ImageCoresController < ApplicationController
     end
     status = @image_core.status
     if status == "in_queue"
-      # update status of instance
-      @image_core.status = 4
-      @image_core.save!
+      if queued_provider_for_cancel?(@image_core)
+        # update status of instance
+        @image_core.status = 4
+        @image_core.save!
 
-      # send request
-      uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
-      http = Net::HTTP.new(uri.host, uri.port)
+        # send request
+        uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
+        http = Net::HTTP.new(uri.host, uri.port)
 
-      # Try to make a request to the first URI
-      request = Net::HTTP::Delete.new(uri.request_uri)
-      request["Content-Type"] = "application/json"
-      response = http.request(request)
+        # Try to make a request to the first URI
+        request = Net::HTTP::Delete.new(uri.request_uri)
+        request["Content-Type"] = "application/json"
+        response = http.request(request)
 
-      respond_to do |format|
-        if response.is_a?(Net::HTTPSuccess)
-          flash[:notice] = "Removing from process queue."
-          format.html { redirect_back_or_to root_path }
-        else
-          flash[:alert] = "Error: #{response.code} - #{response.message}"
+        respond_to do |format|
+          if response.is_a?(Net::HTTPSuccess)
+            flash[:notice] = "Removing from process queue."
+            format.html { redirect_back_or_to root_path }
+          else
+            flash[:alert] = "Error: #{response.code} - #{response.message}"
+            format.html { redirect_back_or_to root_path }
+          end
+        end
+      else
+        @image_core.update!(status: :not_started)
+        respond_to do |format|
+          flash[:notice] = "Removed from process queue."
           format.html { redirect_back_or_to root_path }
         end
       end
@@ -128,11 +120,16 @@ class ImageCoresController < ApplicationController
       0, ""
     )
 
+    configuration = ImageDescriptionProviders::Configuration.current
+    provider = ImageDescriptionProviders::Factory.build(configuration)
+    provider_job_options = configuration.job_options
+
     # Store operation metadata in session
     session[:bulk_operation] = {
       total_count: images_without_descriptions.count,
       started_at: Time.current.to_i,
       image_ids: images_without_descriptions.pluck(:id),  # Track specific images in this operation
+      provider_queued: provider.queued_provider?,
       filter_params: {
         selected_tag_names: params[:selected_tag_names],
         selected_path_names: params[:selected_path_names],
@@ -140,46 +137,36 @@ class ImageCoresController < ApplicationController
       }
     }
 
-    # Get current model
-    current_model = ImageToText.find_by(current: true)
-
     # Queue all images for description generation
     queued_count = 0
     failed_count = 0
 
     images_without_descriptions.each do |image_core|
-      # Update status to in_queue
-      image_core.update(status: 1)
-
-      # Send request to Python service
-      begin
-        uri = URI("http://image_to_text_generator:8000/add_job")
-        http = Net::HTTP.new(uri.host, uri.port)
-        request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
-        data = {
-          image_core_id: image_core.id,
-          image_path: image_core.image_path.name + "/" + image_core.name,
-          model: current_model.name
-        }
-        request.body = data.to_json
-        response = http.request(request)
-
-        if response.is_a?(Net::HTTPSuccess)
+      if provider.queued_provider?
+        result = provider.generate(image_core)
+        if result.success?
           queued_count += 1
         else
-          image_core.update(status: 5) # failed
           failed_count += 1
         end
-      rescue => e
-        Rails.logger.error "Failed to queue image #{image_core.id}: #{e.message}"
-        image_core.update(status: 5) # failed
-        failed_count += 1
+      else
+        begin
+          image_core.update!(status: :in_queue)
+          GenerateImageDescriptionJob.perform_later(image_core.id, provider_job_options)
+          queued_count += 1
+        rescue StandardError => e
+          Rails.logger.error "Failed to enqueue image description job for image #{image_core.id}: #{e.class}: #{e.message}"
+          image_core.update(status: :failed)
+          failed_count += 1
+        end
       end
     end
 
     respond_to do |format|
-      flash[:notice] = "Queued #{queued_count} images for description generation."
+      notices = []
+      notices << "Queued #{queued_count} images for description generation." if queued_count > 0
+      notices << "No images needed description generation." if notices.empty? && failed_count == 0
+      flash[:notice] = notices.join(" ")
       flash[:alert] = "Failed to queue #{failed_count} images." if failed_count > 0
       format.html { redirect_to image_cores_path(
         selected_tag_names: params[:selected_tag_names],
@@ -243,8 +230,8 @@ class ImageCoresController < ApplicationController
 
   def bulk_operation_cancel
     if session[:bulk_operation].present?
-      filter_params = session[:bulk_operation][:filter_params]
-      image_cores = get_filtered_image_cores(filter_params)
+      image_ids = session[:bulk_operation][:image_ids] || session[:bulk_operation]["image_ids"] || []
+      image_cores = ImageCore.where(id: image_ids)
 
       # Cancel all in_queue images
       in_queue_images = image_cores.where(status: 1)
@@ -252,19 +239,24 @@ class ImageCoresController < ApplicationController
 
       in_queue_images.each do |image_core|
         begin
-          # Update status to removing
-          image_core.update(status: 4)
+          if queued_provider_for_cancel?(image_core)
+            # Update status to removing
+            image_core.update(status: 4)
 
-          # Send remove request to Python service
-          uri = URI("http://image_to_text_generator:8000/remove_job/#{image_core.id}")
-          http = Net::HTTP.new(uri.host, uri.port)
-          request = Net::HTTP::Delete.new(uri.request_uri)
-          request["Content-Type"] = "application/json"
-          response = http.request(request)
+            # Send remove request to Python service
+            uri = URI("http://image_to_text_generator:8000/remove_job/#{image_core.id}")
+            http = Net::HTTP.new(uri.host, uri.port)
+            request = Net::HTTP::Delete.new(uri.request_uri)
+            request["Content-Type"] = "application/json"
+            response = http.request(request)
 
-          if response.is_a?(Net::HTTPSuccess)
-            # Reset to not_started after successful removal
-            image_core.update(status: 0)
+            if response.is_a?(Net::HTTPSuccess)
+              # Reset to not_started after successful removal
+              image_core.update(status: 0)
+              cancelled_count += 1
+            end
+          else
+            image_core.update(status: :not_started)
             cancelled_count += 1
           end
         rescue => e
@@ -411,6 +403,23 @@ class ImageCoresController < ApplicationController
   end
 
   private
+
+    def image_description_provider
+      @image_description_provider ||= ImageDescriptionProviders::Factory.build
+    end
+
+    def queued_provider_for_cancel?(image_core)
+      return image_description_provider.queued_provider? unless session[:bulk_operation].present?
+
+      image_ids = session[:bulk_operation][:image_ids] || session[:bulk_operation]["image_ids"] || []
+      return image_description_provider.queued_provider? unless image_ids.map(&:to_i).include?(image_core.id)
+
+      provider_queued = session[:bulk_operation][:provider_queued]
+      provider_queued = session[:bulk_operation]["provider_queued"] if provider_queued.nil?
+      return image_description_provider.queued_provider? if provider_queued.nil?
+
+      ActiveModel::Type::Boolean.new.cast(provider_queued)
+    end
 
     def get_filtered_image_cores(filter_params = nil)
       # Use provided filter params or fall back to request params

@@ -15,10 +15,13 @@ Rails.application.routes.draw do
       end
     end
     resources :image_to_texts do
-    collection do
-      post :update_current
+      collection do
+        post :update_current
+        post :save_openai_settings
+        post :test_openai_settings
+        delete :clear_openai_key
+      end
     end
-  end
   end
 
   resources :image_cores do

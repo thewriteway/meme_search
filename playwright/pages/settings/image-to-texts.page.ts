@@ -13,7 +13,7 @@ export class ImageToTextsPage {
    * Navigate to the image-to-texts settings page
    */
   async goto(): Promise<void> {
-    await this.page.goto('/settings/image_to_texts');
+    await this.page.goto('/settings/image_to_texts?provider_tab=local');
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -25,25 +25,24 @@ export class ImageToTextsPage {
   }
 
   /**
-   * Get a model checkbox input by ID
+   * Get a model radio input by ID
    */
-  getModelCheckbox(modelId: number): Locator {
-    return this.page.locator(`input[id='${modelId}']`);
+  getModelRadio(modelId: number): Locator {
+    return this.page.locator(`#image_to_text_${modelId}`);
   }
 
   /**
    * Get a model label by ID
    */
   getModelLabel(modelId: number): Locator {
-    return this.page.locator(`label[for='${modelId}']`);
+    return this.page.locator(`label[for='image_to_text_${modelId}']`);
   }
 
   /**
    * Check if a model is selected
    */
   async isModelSelected(modelId: number): Promise<boolean> {
-    const checkbox = this.getModelCheckbox(modelId);
-    return await checkbox.isChecked();
+    return await this.getModelRadio(modelId).isChecked();
   }
 
   /**
@@ -57,18 +56,17 @@ export class ImageToTextsPage {
   }
 
   /**
-   * Get all model checkboxes
+   * Get all model radio inputs
    */
-  async getAllModelCheckboxes(): Promise<Locator[]> {
-    const checkboxes = await this.page.locator('input[type="checkbox"]').all();
-    return checkboxes;
+  async getAllModelRadios(): Promise<Locator[]> {
+    return await this.page.locator('input[name="current_id"]').all();
   }
 
   /**
-   * Get the count of model checkboxes
+   * Get the count of model radio inputs
    */
   async getModelCount(): Promise<number> {
-    return await this.page.locator('input[type="checkbox"]').count();
+    return await this.page.locator('input[name="current_id"]').count();
   }
 
   /**

@@ -30,6 +30,6 @@ module MemeSearch
       Dotenv.load(dotenv_path) if File.exist?(dotenv_path)
     end
 
-    config.active_job.queue_adapter = :async
+    config.active_job.queue_adapter = :solid_queue
   end
 end
