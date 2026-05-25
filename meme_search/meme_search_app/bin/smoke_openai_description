@@ -75,8 +75,12 @@ ActiveRecord::Base.transaction do
   image_core = sample_image_core
   puts "ImageCore ##{image_core.id}: #{image_core.image_path.name}/#{image_core.name}"
 
+  attempt = image_core.start_description_generation_attempt!(
+    provider: "openai",
+    provider_settings: configuration.job_options
+  )
   image_core.update!(status: :in_queue, description: nil)
-  provider_result = GenerateImageDescriptionJob.perform_now(image_core.id)
+  provider_result = GenerateImageDescriptionJob.perform_now(image_core.id, configuration.job_options, attempt.id)
 
   image_core.reload
   result = {

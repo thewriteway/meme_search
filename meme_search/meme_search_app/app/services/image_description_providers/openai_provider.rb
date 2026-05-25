@@ -80,26 +80,30 @@ module ImageDescriptionProviders
       Result.new(success: false, message: e.message, queued: false)
     end
 
-    def generate(image_core)
-      image_core.update(status: :processing)
+    def generate(image_core, attempt: nil)
+      attempt ||= create_direct_attempt(image_core)
+      return stale_attempt_result unless attempt&.active_for_image?
+      return stale_attempt_result unless attempt.transition_to_processing!
+
+      image_core.reload
       broadcast_status(image_core)
 
       unless api_key.present?
-        return fail_image(image_core, "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY.")
+        return fail_image(image_core, attempt, "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY.")
       end
 
       description = normalize_description(request_description(image_core))
       if description.blank?
-        return fail_image(image_core, "OpenAI vision API returned an unsupported response.")
+        return fail_image(image_core, attempt, "OpenAI vision API returned an unsupported response.")
       end
 
-      save_description(image_core, description)
+      save_description(image_core, attempt, description)
       Result.new(success: true, message: "Generated description.", queued: false)
     rescue Net::OpenTimeout, Net::ReadTimeout
-      fail_image(image_core, "OpenAI vision API request timed out.")
+      fail_image(image_core, attempt, "OpenAI vision API request timed out.")
     rescue StandardError => e
       Rails.logger.error "OpenAI image description failed for image #{image_core.id}: #{e.class}: #{e.message}"
-      fail_image(image_core, e.message)
+      fail_image(image_core, attempt, e.message)
     end
 
     private
@@ -171,16 +175,33 @@ module ImageDescriptionProviders
         end
       end
 
-      def save_description(image_core, description)
-        image_core.update!(description: description, status: :done)
+      def create_direct_attempt(image_core)
+        attempt = image_core.start_description_generation_attempt!(
+          provider: name,
+          provider_settings: configuration.job_options
+        )
+        image_core.update!(status: :in_queue)
+        attempt
+      end
+
+      def stale_attempt_result
+        Result.new(success: false, message: "Image description generation attempt is no longer active.", queued: false)
+      end
+
+      def save_description(image_core, attempt, description)
+        return stale_attempt_result unless attempt.succeed_with_description!(description)
+
+        image_core.reload
         div_id = "description-image-core-id-#{image_core.id}"
         ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: description }
         broadcast_status(image_core)
         image_core.refresh_description_embeddings
       end
 
-      def fail_image(image_core, message)
-        image_core.update(status: :failed)
+      def fail_image(image_core, attempt, message)
+        return stale_attempt_result unless attempt&.fail_with_error!(message)
+
+        image_core.reload
         broadcast_status(image_core)
         Result.new(success: false, message: message, queued: false)
       end

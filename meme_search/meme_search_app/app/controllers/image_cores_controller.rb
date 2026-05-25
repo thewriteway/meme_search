@@ -8,44 +8,73 @@ class ImageCoresController < ApplicationController
   skip_before_action :verify_authenticity_token, only: [ :description_receiver, :status_receiver ]
 
   def status_receiver
-    received_data = params[:data]
-    id = received_data[:image_core_id].to_i
-    status = received_data[:status].to_i
-    image_core = ImageCore.find(id)
-    image_core.status = status
-    img_id = image_core.id
-    div_id = "status-image-core-id-#{image_core.id}"
-    if image_core.save
+    attempt = verified_callback_attempt
+    return head :unauthorized unless attempt
+
+    status = callback_data[:status].to_i
+    changed =
+      case status
+      when ImageCore.statuses[:not_started]
+        attempt.cancel!
+      when ImageCore.statuses[:in_queue]
+        attempt.mark_queued!
+      when ImageCore.statuses[:processing]
+        attempt.transition_to_processing!
+      when ImageCore.statuses[:done]
+        attempt.active?
+      when ImageCore.statuses[:failed]
+        attempt.fail_with_error!(callback_data[:error_message].presence || "Local image description generation failed.")
+      else
+        return head :unprocessable_entity
+      end
+
+    if changed
+      image_core = attempt.image_core.reload
+      img_id = image_core.id
+      div_id = "status-image-core-id-#{image_core.id}"
       status_html = ApplicationController.renderer.render(partial: "image_cores/generate_status", locals: { img_id: img_id, div_id: div_id, status: image_core.status })
       ActionCable.server.broadcast "image_status_channel", { div_id: div_id, status_html: status_html }
-    else
     end
+
+    head :ok
   end
 
   def description_receiver
-    received_data = params[:data]
-    id = received_data[:image_core_id].to_i
-    description = received_data[:description]
+    attempt = verified_callback_attempt
+    return head :unauthorized unless attempt
 
-    image_core = ImageCore.find(id)
-    image_core.description = description
-    div_id = "description-image-core-id-#{image_core.id}"
+    description = callback_data[:description]
 
-    if image_core.save
+    if attempt.succeed_with_description!(description)
+      image_core = attempt.image_core.reload
+      div_id = "description-image-core-id-#{image_core.id}"
       # update view with newly generated description
       ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: description }
 
       # re-compute embeddings
       image_core.refresh_description_embeddings
-    else
-      puts "Error updating description: #{image.errors.full_messages.join(", ")}"
     end
+
+    head :ok
   end
 
   def generate_description
     status = @image_core.status
     if status != "in_queue" && status != "processing"
-      result = image_description_provider.generate(@image_core)
+      configuration = ImageDescriptionProviders::Configuration.current
+      provider = ImageDescriptionProviders::Factory.build(configuration)
+      result =
+        if provider.queued_provider?
+          provider.generate(@image_core)
+        else
+          attempt = @image_core.start_description_generation_attempt!(
+            provider: provider_name(provider, configuration),
+            provider_settings: configuration.job_options
+          )
+          @image_core.update!(status: :in_queue)
+          GenerateImageDescriptionJob.perform_later(@image_core.id, configuration.job_options, attempt.id)
+          ImageDescriptionProviders::Result.new(success: true, message: "Queued description generation.", queued: true)
+        end
 
       respond_to do |format|
         if result.success?
@@ -72,9 +101,7 @@ class ImageCoresController < ApplicationController
     status = @image_core.status
     if status == "in_queue"
       if queued_provider_for_cancel?(@image_core)
-        # update status of instance
-        @image_core.status = 4
-        @image_core.save!
+        @image_core.cancel_active_description_generation_attempt!
 
         # send request
         uri = URI.parse("http://image_to_text_generator:8000/remove_job/#{@image_core.id}")
@@ -95,7 +122,7 @@ class ImageCoresController < ApplicationController
           end
         end
       else
-        @image_core.update!(status: :not_started)
+        @image_core.cancel_active_description_generation_attempt!
         respond_to do |format|
           flash[:notice] = "Removed from process queue."
           format.html { redirect_back_or_to root_path }
@@ -123,27 +150,24 @@ class ImageCoresController < ApplicationController
     configuration = ImageDescriptionProviders::Configuration.current
     provider = ImageDescriptionProviders::Factory.build(configuration)
     provider_job_options = configuration.job_options
-
-    # Store operation metadata in session
-    session[:bulk_operation] = {
-      total_count: images_without_descriptions.count,
-      started_at: Time.current.to_i,
-      image_ids: images_without_descriptions.pluck(:id),  # Track specific images in this operation
+    operation = ImageDescriptionBulkOperation.create!(
+      provider: provider_name(provider, configuration),
       provider_queued: provider.queued_provider?,
+      total_count: images_without_descriptions.count,
+      started_at: Time.current,
       filter_params: {
         selected_tag_names: params[:selected_tag_names],
         selected_path_names: params[:selected_path_names],
         has_embeddings: params[:has_embeddings]
       }
-    }
+    )
 
-    # Queue all images for description generation
     queued_count = 0
     failed_count = 0
 
     images_without_descriptions.each do |image_core|
       if provider.queued_provider?
-        result = provider.generate(image_core)
+        result = provider.generate(image_core, bulk_operation: operation)
         if result.success?
           queued_count += 1
         else
@@ -151,8 +175,13 @@ class ImageCoresController < ApplicationController
         end
       else
         begin
+          attempt = image_core.start_description_generation_attempt!(
+            provider: provider_name(provider, configuration),
+            provider_settings: provider_job_options,
+            bulk_operation: operation
+          )
           image_core.update!(status: :in_queue)
-          GenerateImageDescriptionJob.perform_later(image_core.id, provider_job_options)
+          GenerateImageDescriptionJob.perform_later(image_core.id, provider_job_options, attempt.id)
           queued_count += 1
         rescue StandardError => e
           Rails.logger.error "Failed to enqueue image description job for image #{image_core.id}: #{e.class}: #{e.message}"
@@ -177,100 +206,42 @@ class ImageCoresController < ApplicationController
   end
 
   def bulk_operation_status
-    # Get filtered image cores based on session filter params
-    if session[:bulk_operation].present?
-      # DEBUG: Log session contents
-      Rails.logger.info "[BULK DEBUG] session[:bulk_operation]: #{session[:bulk_operation].inspect}"
+    operation = ImageDescriptionBulkOperation.current
+    return render json: { error: "No bulk operation in progress" }, status: :not_found unless operation
 
-      filter_params = session[:bulk_operation]["filter_params"]
-      started_at = session[:bulk_operation]["started_at"]
-      total_count = session[:bulk_operation]["total_count"]
-      image_ids = session[:bulk_operation]["image_ids"] || []
-
-      Rails.logger.info "[BULK DEBUG] total_count extracted: #{total_count.inspect}"
-      Rails.logger.info "[BULK DEBUG] started_at extracted: #{started_at.inspect}"
-      Rails.logger.info "[BULK DEBUG] image_ids extracted: #{image_ids.inspect}"
-
-      # Only count images that were part of this bulk operation
-      operation_images = ImageCore.where(id: image_ids)
-
-      Rails.logger.info "[BULK DEBUG] operation_images count: #{operation_images.count}"
-
-      # Count by status (only for images in this operation)
-      status_counts = {
-        not_started: operation_images.where(status: 0).count,
-        in_queue: operation_images.where(status: 1).count,
-        processing: operation_images.where(status: 2).count,
-        done: operation_images.where(status: 3).count,
-        failed: operation_images.where(status: 5).count
-      }
-
-      Rails.logger.info "[BULK DEBUG] status_counts: #{status_counts.inspect}"
-
-      # Check if operation is complete
-      active_count = status_counts[:in_queue] + status_counts[:processing]
-      is_complete = active_count == 0 && status_counts[:not_started] == 0
-
-      # Prepare response BEFORE clearing session
-      response_data = {
-        status_counts: status_counts,
-        total: total_count,
-        is_complete: is_complete,
-        started_at: started_at
-      }
-
-      # Clear session if complete
-      session.delete(:bulk_operation) if is_complete
-
-      render json: response_data
-    else
-      render json: { error: "No bulk operation in progress" }, status: :not_found
-    end
+    render json: operation.mark_completed_if_finished!
   end
 
   def bulk_operation_cancel
-    if session[:bulk_operation].present?
-      image_ids = session[:bulk_operation][:image_ids] || session[:bulk_operation]["image_ids"] || []
-      image_cores = ImageCore.where(id: image_ids)
+    operation = ImageDescriptionBulkOperation.current
+    return render json: { error: "No bulk operation in progress" }, status: :not_found unless operation
 
-      # Cancel all in_queue images
-      in_queue_images = image_cores.where(status: 1)
-      cancelled_count = 0
+    in_queue_images = operation.image_cores.where(status: ImageCore.statuses[:in_queue])
+    cancelled_count = 0
 
-      in_queue_images.each do |image_core|
-        begin
-          if queued_provider_for_cancel?(image_core)
-            # Update status to removing
-            image_core.update(status: 4)
+    in_queue_images.each do |image_core|
+      begin
+        if operation.provider_queued?
+          image_core.cancel_active_description_generation_attempt!
 
-            # Send remove request to Python service
-            uri = URI("http://image_to_text_generator:8000/remove_job/#{image_core.id}")
-            http = Net::HTTP.new(uri.host, uri.port)
-            request = Net::HTTP::Delete.new(uri.request_uri)
-            request["Content-Type"] = "application/json"
-            response = http.request(request)
+          uri = URI("http://image_to_text_generator:8000/remove_job/#{image_core.id}")
+          http = Net::HTTP.new(uri.host, uri.port)
+          request = Net::HTTP::Delete.new(uri.request_uri)
+          request["Content-Type"] = "application/json"
+          response = http.request(request)
 
-            if response.is_a?(Net::HTTPSuccess)
-              # Reset to not_started after successful removal
-              image_core.update(status: 0)
-              cancelled_count += 1
-            end
-          else
-            image_core.update(status: :not_started)
-            cancelled_count += 1
-          end
-        rescue => e
-          Rails.logger.error "Failed to cancel job for image #{image_core.id}: #{e.message}"
+          cancelled_count += 1 if response.is_a?(Net::HTTPSuccess)
+        else
+          cancelled_count += 1 if image_core.cancel_active_description_generation_attempt!
         end
+      rescue => e
+        Rails.logger.error "Failed to cancel job for image #{image_core.id}: #{e.message}"
       end
-
-      # Clear session
-      session.delete(:bulk_operation)
-
-      render json: { cancelled_count: cancelled_count }
-    else
-      render json: { error: "No bulk operation in progress" }, status: :not_found
     end
+
+    operation.cancel!
+
+    render json: { cancelled_count: cancelled_count }
   end
 
   def search
@@ -409,16 +380,13 @@ class ImageCoresController < ApplicationController
     end
 
     def queued_provider_for_cancel?(image_core)
-      return image_description_provider.queued_provider? unless session[:bulk_operation].present?
+      image_description_provider.queued_provider?
+    end
 
-      image_ids = session[:bulk_operation][:image_ids] || session[:bulk_operation]["image_ids"] || []
-      return image_description_provider.queued_provider? unless image_ids.map(&:to_i).include?(image_core.id)
+    def provider_name(provider, configuration)
+      return provider.name if provider.respond_to?(:name)
 
-      provider_queued = session[:bulk_operation][:provider_queued]
-      provider_queued = session[:bulk_operation]["provider_queued"] if provider_queued.nil?
-      return image_description_provider.queued_provider? if provider_queued.nil?
-
-      ActiveModel::Type::Boolean.new.cast(provider_queued)
+      configuration.provider
     end
 
     def get_filtered_image_cores(filter_params = nil)
@@ -518,6 +486,19 @@ class ImageCoresController < ApplicationController
 
       permitted_params.delete(:selected_tag_names)
       permitted_params
+    end
+
+    def callback_data
+      params.fetch(:data, {})
+    end
+
+    def verified_callback_attempt
+      data = callback_data
+      ImageDescriptionGenerationAttempt.find_verified_callback_attempt(
+        attempt_id: data[:attempt_id],
+        image_core_id: data[:image_core_id],
+        callback_token: data[:callback_token]
+      )
     end
 
   def remove_stopwords(input_string)

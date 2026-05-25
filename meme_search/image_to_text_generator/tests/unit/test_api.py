@@ -41,6 +41,16 @@ def client(test_db, monkeypatch):
     return TestClient(app)
 
 
+def job_payload(image_core_id: int, image_path: str = "/path/to/image.jpg", model: str = "test"):
+    return {
+        "image_core_id": image_core_id,
+        "image_path": image_path,
+        "model": model,
+        "attempt_id": image_core_id + 1000,
+        "callback_token": f"signed-token-{image_core_id}",
+    }
+
+
 class TestHomeEndpoint:
     """Test suite for GET / endpoint"""
 
@@ -59,11 +69,7 @@ class TestAddJobEndpoint:
     def test_add_job_success(self, mock_status_sender, client, test_db):
         """Test successful job addition"""
         # Setup
-        job_data = {
-            "image_core_id": 1,
-            "image_path": "/path/to/image.jpg",
-            "model": "test"
-        }
+        job_data = job_payload(1)
 
         # Execute
         response = client.post("/add_job", json=job_data)
@@ -74,7 +80,7 @@ class TestAddJobEndpoint:
 
         # Assert status_sender called
         mock_status_sender.assert_called_once_with(
-            {"image_core_id": 1, "status": 1},
+            {"image_core_id": 1, "status": 1, "attempt_id": 1001, "callback_token": "signed-token-1"},
             "http://localhost:3000/"
         )
 
@@ -94,19 +100,11 @@ class TestAddJobEndpoint:
     def test_add_job_multiple_jobs(self, mock_status_sender, client, test_db):
         """Test adding multiple jobs in sequence"""
         # Add first job
-        response1 = client.post("/add_job", json={
-            "image_core_id": 1,
-            "image_path": "/image1.jpg",
-            "model": "test"
-        })
+        response1 = client.post("/add_job", json=job_payload(1, "/image1.jpg"))
         assert response1.status_code == 200
 
         # Add second job
-        response2 = client.post("/add_job", json={
-            "image_core_id": 2,
-            "image_path": "/image2.jpg",
-            "model": "Florence-2-base"
-        })
+        response2 = client.post("/add_job", json=job_payload(2, "/image2.jpg", "Florence-2-base"))
         assert response2.status_code == 200
 
         # Verify both jobs in database
@@ -125,18 +123,31 @@ class TestAddJobEndpoint:
         response = client.post("/add_job", json={
             "image_core_id": 1,
             "image_path": "/image.jpg",
-            "model": "invalid-model-name"
+            "model": "invalid-model-name",
+            "attempt_id": 1001,
+            "callback_token": "signed-token-1"
         })
 
         # FastAPI will return 422 for validation error
         assert response.status_code == 422
 
     @patch('app.status_sender')
+    def test_add_job_requires_attempt_callback_fields(self, mock_status_sender, client):
+        response = client.post("/add_job", json={
+            "image_core_id": 1,
+            "image_path": "/image.jpg",
+            "model": "test"
+        })
+
+        assert response.status_code == 422
+        mock_status_sender.assert_not_called()
+
+    @patch('app.status_sender')
     def test_add_job_batch_from_path_discovery(self, mock_status_sender, client, test_db):
         """Test adding batch of jobs simulating path discovery with multiple images (Scenario A)"""
         # Simulate path with 5 images - all jobs added in quick succession
         batch_jobs = [
-            {"image_core_id": i, "image_path": f"/memes/example_path/image_{i}.jpg", "model": "test"}
+            job_payload(i, f"/memes/example_path/image_{i}.jpg")
             for i in range(1, 6)
         ]
 
@@ -173,9 +184,9 @@ class TestAddJobEndpoint:
     def test_add_job_batch_with_different_models(self, mock_status_sender, client, test_db):
         """Test batch jobs can use different models (user preference per image)"""
         batch_jobs = [
-            {"image_core_id": 1, "image_path": "/image1.jpg", "model": "test"},
-            {"image_core_id": 2, "image_path": "/image2.jpg", "model": "Florence-2-base"},
-            {"image_core_id": 3, "image_path": "/image3.jpg", "model": "Florence-2-large"},
+            job_payload(1, "/image1.jpg"),
+            job_payload(2, "/image2.jpg", "Florence-2-base"),
+            job_payload(3, "/image3.jpg", "Florence-2-large"),
         ]
 
         for job in batch_jobs:
@@ -196,11 +207,7 @@ class TestAddJobEndpoint:
         """Test check_queue correctly reports batch job count"""
         # Add batch of 10 jobs
         for i in range(1, 11):
-            client.post("/add_job", json={
-                "image_core_id": i,
-                "image_path": f"/batch/image_{i}.jpg",
-                "model": "test"
-            })
+            client.post("/add_job", json=job_payload(i, f"/batch/image_{i}.jpg"))
 
         # Check queue
         response = client.get("/check_queue")
@@ -222,16 +229,8 @@ class TestCheckQueueEndpoint:
     def test_check_queue_with_jobs(self, mock_status_sender, client, test_db):
         """Test check_queue with jobs in queue"""
         # Add jobs
-        client.post("/add_job", json={
-            "image_core_id": 1,
-            "image_path": "/image1.jpg",
-            "model": "test"
-        })
-        client.post("/add_job", json={
-            "image_core_id": 2,
-            "image_path": "/image2.jpg",
-            "model": "test"
-        })
+        client.post("/add_job", json=job_payload(1, "/image1.jpg"))
+        client.post("/add_job", json=job_payload(2, "/image2.jpg"))
 
         # Check queue
         response = client.get("/check_queue")
@@ -247,11 +246,7 @@ class TestRemoveJobEndpoint:
     def test_remove_job_success(self, mock_status_sender, client, test_db):
         """Test successful job removal"""
         # Add job first
-        client.post("/add_job", json={
-            "image_core_id": 42,
-            "image_path": "/image.jpg",
-            "model": "test"
-        })
+        client.post("/add_job", json=job_payload(42, "/image.jpg"))
         mock_status_sender.reset_mock()
 
         # Remove job
@@ -263,7 +258,7 @@ class TestRemoveJobEndpoint:
 
         # Assert status_sender called with status=0 (not_started)
         mock_status_sender.assert_called_once_with(
-            {"image_core_id": 42, "status": 0},
+            {"image_core_id": 42, "status": 0, "attempt_id": 1042, "callback_token": "signed-token-42"},
             "http://localhost:3000/"
         )
 
@@ -286,21 +281,13 @@ class TestRemoveJobEndpoint:
         assert response.status_code == 200
         assert response.json() == {"status": "Job removed from queue"}
 
-        # Assert status_sender called with status=3 (done)
-        mock_status_sender.assert_called_once_with(
-            {"image_core_id": 999, "status": 3},
-            "http://localhost:3000/"
-        )
+        mock_status_sender.assert_not_called()
 
     @patch('app.status_sender')
     def test_remove_job_multiple_times(self, mock_status_sender, client, test_db):
         """Test removing same job multiple times"""
         # Add job
-        client.post("/add_job", json={
-            "image_core_id": 10,
-            "image_path": "/image.jpg",
-            "model": "test"
-        })
+        client.post("/add_job", json=job_payload(10, "/image.jpg"))
         mock_status_sender.reset_mock()
 
         # Remove job first time (exists)
@@ -314,5 +301,4 @@ class TestRemoveJobEndpoint:
         # Remove job second time (doesn't exist)
         response2 = client.delete("/remove_job/10")
         assert response2.status_code == 200
-        call_args_2 = mock_status_sender.call_args[0][0]
-        assert call_args_2["status"] == 3  # done
+        mock_status_sender.assert_not_called()

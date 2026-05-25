@@ -10,6 +10,10 @@ meme_search/db_data
 **/__pycache__
 **.ruff_cache
 **models
+!meme_search/meme_search_app/app/models/
+!meme_search/meme_search_app/app/models/image_description_generation_attempt.rb
+!meme_search/meme_search_app/test/models/
+!meme_search/meme_search_app/test/models/image_description_generation_attempt_test.rb
 
 # Temporary planning/documentation files
 plans/temp*
