@@ -107,6 +107,10 @@ export class ImageToTextsPage {
     );
   }
 
+  async getAllModelRadios(): Promise<Locator[]> {
+    return await this.page.locator('input[name="current_id"]').all();
+  }
+
   async verifyOnlyOneModelSelected(selectedId: number, allIds: number[]): Promise<void> {
     for (const id of allIds) {
       const isChecked = await this.isModelSelected(id);
