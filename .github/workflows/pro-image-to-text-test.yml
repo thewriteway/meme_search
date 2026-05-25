@@ -9,14 +9,19 @@ on:
       - "!meme_search/image_to_text_generator/**/*.md"
       - "!meme_search/image_to_text_generator/**/LICENSE"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   image_to_text_lint:
     name: image_to_text_lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
       - uses: chartboost/ruff-action@v1
         with:
           args: "check --fix"
@@ -28,9 +33,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install dependencies
@@ -50,7 +55,7 @@ jobs:
           PYTHONPATH=. python3.12 -m pytest tests/unit/ --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=60
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: python-coverage-report
