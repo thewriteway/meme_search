@@ -12,6 +12,9 @@ on:
         required: false
         default: "https://api.openai.com/v1"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   openai_live_smoke:
     name: OpenAI live description smoke
@@ -35,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install packages
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips postgresql-client
