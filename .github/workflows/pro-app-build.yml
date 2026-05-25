@@ -79,7 +79,8 @@ jobs:
         uses: docker/build-push-action@v6
         timeout-minutes: 120
         with:
-          context: ./meme_search/meme_search_app
+          context: .
+          file: ./meme_search/meme_search_app/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           tags: ghcr.io/neonwatty/meme_search:latest
