@@ -318,6 +318,46 @@ class TestFlorence2BaseImageToText:
         assert result == 'A detailed caption of the image'
         assert model.downloaded is True
 
+    def test_extract_converts_rgba_png_before_processor_call(self, tmp_path):
+        """Test Florence-2-base normalizes the issue's RGBA PNG failure mode"""
+        image_path = tmp_path / "Screenshot 2026-01-10 155711.png"
+        Image.new("RGBA", (3, 2), (255, 0, 0, 128)).save(image_path)
+
+        captured = {}
+        mock_inputs = {"input_ids": MagicMock(), "pixel_values": MagicMock()}
+        mock_inputs_with_to = MagicMock()
+        mock_inputs_with_to.__getitem__ = lambda self, key: mock_inputs[key]
+
+        mock_processor_instance = MagicMock()
+
+        def process_image(text, images, return_tensors):
+            captured["text"] = text
+            captured["images"] = images
+            captured["return_tensors"] = return_tensors
+            return mock_inputs_with_to
+
+        mock_processor_instance.side_effect = process_image
+        mock_processor_instance.batch_decode.return_value = ["generated text"]
+        mock_processor_instance.post_process_generation.return_value = {
+            '<DETAILED_CAPTION>': 'A caption for an RGBA screenshot'
+        }
+
+        mock_model_instance = MagicMock()
+        mock_model_instance.generate.return_value = [1, 2, 3]
+
+        model = Florence2BaseImageToText(model_id="microsoft/Florence-2-base", revision="2024-08-26")
+        model.model = mock_model_instance
+        model.processor = mock_processor_instance
+        model.downloaded = True
+
+        result = model.extract(str(image_path))
+
+        assert result == "A caption for an RGBA screenshot"
+        assert captured["text"] == "<DETAILED_CAPTION>"
+        assert captured["return_tensors"] == "pt"
+        assert captured["images"].mode == "RGB"
+        assert captured["images"].size == (3, 2)
+
     @patch('model_init.Image.open')
     @patch('model_init.AutoProcessor.from_pretrained')
     @patch('model_init.AutoModelForCausalLM.from_pretrained')
