@@ -44,19 +44,36 @@ validate_compose_file() {
 
     assert_not_contains "$ROOT_DIR/$compose_file" "version:"
     assert_contains "$rendered_config" "target: /var/lib/postgresql/data"
-    assert_contains "$rendered_config" "type: volume"
-    assert_contains "$rendered_config" "source: meme_search_db_data"
-    assert_not_contains "$rendered_config" "meme_search/db_data/meme-search-db"
+    assert_contains "$rendered_config" "type: bind"
+    assert_contains "$rendered_config" "meme_search/db_data/meme-search-db"
     assert_contains "$rendered_config" "target: /rails/public/memes/direct-uploads"
     assert_contains "$rendered_config" "target: /app/public/memes/direct-uploads"
     assert_contains "$rendered_config" "target: /app/db"
     assert_contains "$rendered_config" "target: /root/.cache/huggingface"
-    assert_contains "$rendered_config" "source: meme_search_direct_uploads"
-    assert_contains "$rendered_config" "source: meme_search_generator_db"
-    assert_contains "$rendered_config" "source: meme_search_models"
-    assert_not_contains "$rendered_config" "meme_search/direct-uploads"
-    assert_not_contains "$rendered_config" "meme_search/db_data/image_to_text_generator"
-    assert_not_contains "$rendered_config" "meme_search/models"
+    assert_contains "$rendered_config" "meme_search/direct-uploads"
+    assert_contains "$rendered_config" "meme_search/db_data/image_to_text_generator"
+    assert_contains "$rendered_config" "meme_search/models"
+}
+
+validate_path_overrides() {
+    local compose_file="$1"
+    local rendered_config
+    rendered_config="$(mktemp)"
+    trap 'rm -f "$rendered_config"' RETURN
+
+    (
+        cd "$ROOT_DIR"
+        MEME_SEARCH_DB_PATH=/volume1/docker/meme-search/db \
+        MEME_SEARCH_DIRECT_UPLOADS_PATH=/volume1/docker/meme-search/direct-uploads \
+        MEME_SEARCH_GENERATOR_DB_PATH=/volume1/docker/meme-search/image-to-text-db \
+        MEME_SEARCH_MODELS_PATH=/volume1/docker/meme-search/models \
+            docker compose -f "$compose_file" config > "$rendered_config"
+    )
+
+    assert_contains "$rendered_config" "source: /volume1/docker/meme-search/db"
+    assert_contains "$rendered_config" "source: /volume1/docker/meme-search/direct-uploads"
+    assert_contains "$rendered_config" "source: /volume1/docker/meme-search/image-to-text-db"
+    assert_contains "$rendered_config" "source: /volume1/docker/meme-search/models"
 }
 
 assert_directory_exists "meme_search/direct-uploads"
@@ -69,5 +86,7 @@ git check-ignore --quiet "$ROOT_DIR/meme_search/models/config.json" || fail "Exp
 
 validate_compose_file "docker-compose.yml"
 validate_compose_file "docker-compose-local-build.yml"
+validate_path_overrides "docker-compose.yml"
+validate_path_overrides "docker-compose-local-build.yml"
 
 echo "✓ Docker Compose persistence path tests passed"

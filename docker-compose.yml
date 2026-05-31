@@ -15,7 +15,7 @@ services:
         condition: service_healthy
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /rails/public/memes directory in the container (see example below)
       - ./meme_search/memes/:/rails/public/memes # <-- example meme directory from the repository
-      - ${MEME_SEARCH_DIRECT_UPLOADS_VOLUME:-meme_search_direct_uploads}:/rails/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/rails/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
       # -  /route/to/my/personal/additional_memes/:/rails/public/memes/additional_memes # <-- personal meme collection - must be placed inside /rails/public/memes in the container
 
   meme_search_jobs:
@@ -33,7 +33,7 @@ services:
         condition: service_healthy
     volumes:
       - ./meme_search/memes/:/rails/public/memes
-      - ${MEME_SEARCH_DIRECT_UPLOADS_VOLUME:-meme_search_direct_uploads}:/rails/public/memes/direct-uploads
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/rails/public/memes/direct-uploads
 
   image_to_text_generator:
     # Required only when IMAGE_DESCRIPTION_PROVIDER=local, which is the default.
@@ -48,10 +48,10 @@ services:
       - "8000"
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /app/public/memes directory in the container (see example below)
       - ./meme_search/memes/:/app/public/memes # <-- example meme directory from the repository
-      - ${MEME_SEARCH_DIRECT_UPLOADS_VOLUME:-meme_search_direct_uploads}:/app/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/app/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
       # -  /route/to/my/personal/additional_memes/:/app/public/memes/additional_memes # <-- personal meme collection - must be placed inside /app/public/memes in the container
-      - ${MEME_SEARCH_GENERATOR_DB_VOLUME:-meme_search_generator_db}:/app/db
-      - ${MEME_SEARCH_MODELS_VOLUME:-meme_search_models}:/root/.cache/huggingface
+      - ${MEME_SEARCH_GENERATOR_DB_PATH:-./meme_search/db_data/image_to_text_generator}:/app/db
+      - ${MEME_SEARCH_MODELS_PATH:-./meme_search/models}:/root/.cache/huggingface
     deploy:
       resources:
         limits: # <-- roughly tested min memory for cpu usage
@@ -66,7 +66,7 @@ services:
     image: pgvector/pgvector:pg17
     container_name: meme-search-db # note: must use - and not _ as ActiveRecord uses URI::RFC2396_Parser to parse database URLs
     volumes:
-      - meme_search_db_data:/var/lib/postgresql/data
+      - ${MEME_SEARCH_DB_PATH:-./meme_search/db_data/meme-search-db}:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: meme_search
       POSTGRES_USER: postgres
@@ -78,9 +78,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-  meme_search_db_data:
-  meme_search_direct_uploads:
-  meme_search_generator_db:
-  meme_search_models:
