@@ -123,14 +123,6 @@ if [ ! -f "package.json" ] || [ ! -d "meme_search" ]; then
 fi
 echo -e "${GREEN}✓ Running from project root${NC}"
 
-print_header "Docker Compose: Database URL Tests"
-if bash scripts/test_compose_database_url.sh; then
-    echo -e "${GREEN}✓ Docker Compose database URL tests passed${NC}"
-else
-    echo -e "${RED}❌ Docker Compose database URL tests failed${NC}"
-    track_failure "Docker Compose: Database URL Tests"
-fi
-
 # Parse command line arguments
 SKIP_E2E=false
 SKIP_RAILS=false

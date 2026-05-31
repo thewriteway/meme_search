@@ -1,0 +1,32 @@
+name: Docker Compose database URL tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main", "develop"]
+    paths:
+      - "docker-compose*.yml"
+      - "scripts/test_compose_database_url.sh"
+      - ".github/workflows/docker-compose-database-url-test.yml"
+      - "README.md"
+  push:
+    branches: ["main", "develop"]
+    paths:
+      - "docker-compose*.yml"
+      - "scripts/test_compose_database_url.sh"
+      - ".github/workflows/docker-compose-database-url-test.yml"
+      - "README.md"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  docker_compose_database_url:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Validate Compose database URLs
+        run: bash scripts/test_compose_database_url.sh
