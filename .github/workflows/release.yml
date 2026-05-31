@@ -66,15 +66,15 @@ jobs:
           body: |
             ## Highlights
 
-            - Added OpenAI-compatible vision description provider support, originally contributed by @SirEdvin in #153.
-            - Added app-wide model provider settings for choosing local or OpenAI-compatible cloud generation.
-            - Made image description generation durable through Solid Queue so failed attempts can be retried cleanly.
-            - Added E2E and integration coverage, plus an optional live OpenAI smoke workflow gated by `OPENAI_API_KEY`.
-            - Fixed and rebuilt multi-arch Docker image publishing for AMD64 and ARM64.
+            - Added clipboard image paste support on the upload screen, including validation, generated filenames, and end-to-end coverage.
+            - Normalized image inputs before captioning so transparent, palette, and grayscale images are converted consistently for the vision model.
+            - Fixed Docker Compose database URLs when a custom host `DB_PORT` is set.
+            - Hardened Compose persistence paths for uploads, SQLite data, models, and generator-side storage.
+            - Refreshed the multi-arch Docker images for AMD64 and ARM64.
 
             ## Contributor Thanks
 
-            Thanks to @SirEdvin for kicking off this release with the original OpenAI-compatible provider contribution in #153. The release was expanded through follow-up PRs to cover provider selection UX, queue durability, live smoke testing, and Docker image publishing fixes.
+            Thanks to the issue reporters and reviewers who helped pin down the upload, captioning, and Docker Compose edge cases covered by this release.
 
             ## Docker Images
 
