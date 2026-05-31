@@ -14,8 +14,40 @@ from model_init import (
     Florence2LargeImageToText,
     SmolVLM256ImageToText,
     SmolVLM500ImageToText,
+    load_rgb_image,
     model_selector
 )
+
+from PIL import Image
+
+
+def test_load_rgb_image_keeps_rgb_images(tmp_path):
+    image_path = tmp_path / "rgb.jpg"
+    Image.new("RGB", (2, 2), (255, 0, 0)).save(image_path)
+
+    image = load_rgb_image(image_path)
+
+    assert image.mode == "RGB"
+    assert image.size == (2, 2)
+
+
+@pytest.mark.parametrize(
+    ("mode", "filename"),
+    [
+        ("RGBA", "transparent.png"),
+        ("LA", "luminance-alpha.png"),
+        ("L", "grayscale.png"),
+        ("P", "palette.png"),
+    ],
+)
+def test_load_rgb_image_converts_non_rgb_images(tmp_path, mode, filename):
+    image_path = tmp_path / filename
+    Image.new(mode, (2, 2)).save(image_path)
+
+    image = load_rgb_image(image_path)
+
+    assert image.mode == "RGB"
+    assert image.size == (2, 2)
 
 
 class TestTestImageToText:
@@ -361,6 +393,42 @@ class TestFlorence2LargeImageToText:
         assert call_args[0][0] == "microsoft/Florence-2-large"
         assert call_args[1]["trust_remote_code"] is True
 
+    @patch('model_init.load_rgb_image')
+    def test_extract_uses_rgb_image_and_returns_detailed_caption(self, mock_load_rgb_image):
+        """Test extract normalizes image input before processor call"""
+        mock_pil_image = MagicMock()
+        mock_pil_image.width = 800
+        mock_pil_image.height = 600
+        mock_load_rgb_image.return_value = mock_pil_image
+
+        mock_processor_instance = MagicMock()
+        mock_inputs = {"input_ids": MagicMock(), "pixel_values": MagicMock()}
+        mock_inputs_with_to = MagicMock()
+        mock_inputs_with_to.__getitem__ = lambda self, key: mock_inputs[key]
+        mock_processor_instance.return_value = mock_inputs_with_to
+        mock_processor_instance.batch_decode.return_value = ["generated text"]
+        mock_processor_instance.post_process_generation.return_value = {
+            '<DETAILED_CAPTION>': 'A large model caption'
+        }
+
+        mock_model_instance = MagicMock()
+        mock_model_instance.generate.return_value = [1, 2, 3]
+
+        model = Florence2LargeImageToText(model_id="microsoft/Florence-2-large", revision="2024-08-26")
+        model.model = mock_model_instance
+        model.processor = mock_processor_instance
+        model.downloaded = True
+
+        result = model.extract("rgba.png")
+
+        assert result == "A large model caption"
+        mock_load_rgb_image.assert_called_once_with("rgba.png")
+        mock_processor_instance.assert_called_once_with(
+            text="<DETAILED_CAPTION>",
+            images=mock_pil_image,
+            return_tensors="pt"
+        )
+
 
 class TestSmolVLM256ImageToText:
     """Test suite for SmolVLM256ImageToText model"""
@@ -470,6 +538,39 @@ class TestSmolVLM500ImageToText:
         call_args = mock_model.call_args
         assert call_args[0][0] == "HuggingFaceTB/SmolVLM-500M-Instruct"
         assert call_args[1]["_attn_implementation"] == "eager"
+
+    @patch('model_init.load_rgb_image')
+    def test_extract_uses_rgb_image_and_cleans_output_text(self, mock_load_rgb_image):
+        """Test extract normalizes image input and removes prompt text"""
+        mock_pil_image = MagicMock()
+        mock_load_rgb_image.return_value = mock_pil_image
+
+        mock_processor_instance = MagicMock()
+        mock_processor_instance.apply_chat_template.return_value = "template"
+        mock_inputs = MagicMock()
+        mock_inputs.to.return_value = mock_inputs
+        mock_processor_instance.return_value = mock_inputs
+        mock_processor_instance.batch_decode.return_value = [
+            "Can you describe this image?Assistant: Clean 500M caption### Analysis and Description: extra text"
+        ]
+
+        mock_model_instance = MagicMock()
+        mock_model_instance.generate.return_value = [1, 2, 3]
+
+        model = SmolVLM500ImageToText(model_id="HuggingFaceTB/SmolVLM-500M-Instruct", revision="2024-08-26")
+        model.model = mock_model_instance
+        model.processor = mock_processor_instance
+        model.downloaded = True
+
+        result = model.extract("grayscale.png")
+
+        assert result == "Clean 500M caption"
+        mock_load_rgb_image.assert_called_once_with("grayscale.png")
+        mock_processor_instance.assert_called_once_with(
+            text="template",
+            images=[mock_pil_image],
+            return_tensors="pt"
+        )
 
 
 class TestModelSelector:
