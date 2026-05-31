@@ -170,6 +170,7 @@ The Compose files store app data in local bind-mounted directories so upgrades k
 - `./meme_search/models` for model downloads
 
 Most Docker installations create missing bind-mount directories automatically. Some Docker frontends, including Synology Container Manager, require the directories to exist before startup.
+Compose also runs a short setup container at startup to make the upload directory writable by the non-root Rails containers, so the configured upload path may be owned by UID/GID `1000` after the first run.
 
 If you want these persistent files visible on a NAS path, set the storage path variables in `.env` or directly in your Compose UI:
 

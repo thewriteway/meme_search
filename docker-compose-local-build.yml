@@ -1,4 +1,13 @@
 services:
+  meme_search_uploads_setup:
+    image: alpine:3.20
+    command: >
+      sh -c "mkdir -p /direct-uploads &&
+      chown -R 1000:1000 /direct-uploads &&
+      chmod -R u+rwX /direct-uploads"
+    volumes:
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/direct-uploads
+
   meme_search:
     build:
       context: .
@@ -13,6 +22,8 @@ services:
     ports:
       - "${APP_PORT:-3000}:3000" # <--  adjust to desired local port for this service in your .env file
     depends_on:
+      meme_search_uploads_setup:
+        condition: service_completed_successfully
       meme_search_db:
         condition: service_healthy
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /rails/public/memes directory in the container (see example below)
@@ -33,6 +44,8 @@ services:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OPENAI_VISION_MODEL: "${OPENAI_VISION_MODEL:-}"
     depends_on:
+      meme_search_uploads_setup:
+        condition: service_completed_successfully
       meme_search_db:
         condition: service_healthy
     volumes:
@@ -50,6 +63,9 @@ services:
     environment: # <-- you can adjust these values in your .env file
       APP_PORT: "${APP_PORT:-3000}"
       GEN_URL: "http://meme_search:3000"
+    depends_on:
+      meme_search_uploads_setup:
+        condition: service_completed_successfully
     expose:
       - "8000" 
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /app/public/memes directory in the container (see example below)
