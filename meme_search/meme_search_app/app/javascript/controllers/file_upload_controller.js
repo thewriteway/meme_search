@@ -61,13 +61,23 @@ export default class extends Controller {
 
   handlePaste(event) {
     const clipboardItems = Array.from(event.clipboardData?.items || []);
+    const pastedFileItems = clipboardItems.filter((item) => item.kind === "file");
     const pastedFiles = clipboardItems
       .filter((item) => item.kind === "file")
       .map((item) => item.getAsFile())
       .filter((file) => file && file.type.match(/^image\/(jpeg|jpg|png|webp)$/))
       .map((file, index) => this.withClipboardFilename(file, index));
 
-    if (pastedFiles.length === 0) return;
+    if (pastedFiles.length === 0) {
+      const pastedImageItems = pastedFileItems.filter((item) => item.type.match(/^image\//));
+
+      if (pastedImageItems.length > 0) {
+        event.preventDefault();
+        this.showError("Pasted image format is not supported. Use JPG, PNG, or WEBP.");
+      }
+
+      return;
+    }
 
     event.preventDefault();
     this.addFiles(pastedFiles);

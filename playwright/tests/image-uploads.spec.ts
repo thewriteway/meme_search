@@ -15,6 +15,7 @@ import * as fs from 'fs';
 test.describe('Image Uploads', () => {
   let imageUploadsPage: ImageUploadsPage;
   let imagePathsPage: ImagePathsPage;
+  let directUploadsSnapshot: Set<string>;
   const testImagePath = path.join(__dirname, '../fixtures/test-image.jpg');
   const testInvalidPath = path.join(__dirname, '../fixtures/test-file.txt');
   const directUploadsPath = path.join(__dirname, '../../meme_search/meme_search_app/public/memes/direct-uploads');
@@ -47,6 +48,11 @@ test.describe('Image Uploads', () => {
 
   // Reset database before each test
   test.beforeEach(async ({ page }) => {
+    if (!fs.existsSync(directUploadsPath)) {
+      fs.mkdirSync(directUploadsPath, { recursive: true });
+    }
+
+    directUploadsSnapshot = new Set(fs.readdirSync(directUploadsPath));
     await resetTestDatabase();
     imageUploadsPage = new ImageUploadsPage(page);
     imagePathsPage = new ImagePathsPage(page);
@@ -56,7 +62,7 @@ test.describe('Image Uploads', () => {
     if (!fs.existsSync(directUploadsPath)) return;
 
     for (const filename of fs.readdirSync(directUploadsPath)) {
-      if (filename === '.gitkeep') continue;
+      if (directUploadsSnapshot.has(filename)) continue;
 
       const uploadedFilePath = path.join(directUploadsPath, filename);
       if (fs.statSync(uploadedFilePath).isFile()) {
@@ -160,6 +166,19 @@ test.describe('Image Uploads', () => {
 
     expect(await imageUploadsPage.getPreviewCount()).toBe(0);
     expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(true);
+  });
+
+  test('should show an error for unsupported pasted image formats', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteFiles([
+      { base64: Buffer.from('gif bytes').toString('base64'), filename: 'animated.gif', mimeType: 'image/gif' },
+    ]);
+    await page.waitForTimeout(500);
+
+    expect(await imageUploadsPage.getPreviewCount()).toBe(0);
+    expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(true);
+    await expect(page.getByText('Pasted image format is not supported. Use JPG, PNG, or WEBP.')).toBeVisible();
   });
 
   test('should upload a pasted clipboard image', async ({ page }) => {
