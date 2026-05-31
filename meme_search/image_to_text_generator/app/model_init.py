@@ -23,6 +23,31 @@ model = None
 tokenizer = None
 
 
+def load_rgb_image(image_path):
+    image = Image.open(image_path)
+    mode = getattr(image, "mode", None)
+    image_info = getattr(image, "info", {})
+    has_transparency = isinstance(image_info, dict) and image_info.get("transparency") is not None
+    has_alpha = mode in ("RGBA", "LA") or has_transparency
+
+    if has_alpha:
+        image_rgba = image.convert("RGBA")
+        background = Image.new("RGBA", image_rgba.size, (255, 255, 255, 255))
+        background.alpha_composite(image_rgba)
+        converted_image = background.convert("RGB")
+        image_rgba.close()
+        background.close()
+        image.close()
+        return converted_image
+
+    if isinstance(mode, str) and mode != "RGB":
+        converted_image = image.convert("RGB")
+        image.close()
+        return converted_image
+
+    return image
+
+
 class TestImageToText:
     """
     Test/dummy model for E2E testing that doesn't require actual ML inference.
@@ -89,7 +114,7 @@ class MoondreamImageToText:
             logging.info("INFO: model downloaded, starting image processing")
 
         # load in image
-        image = Image.open(image_path)
+        image = load_rgb_image(image_path)
         logging.info(f"DONE: image loaded, starting generation --> {image_path}")
 
         # process image
@@ -165,7 +190,7 @@ class MoondreamQuantizedImageToText:
             logging.info("INFO: model downloaded, starting image processing")
 
         # load in image
-        image = Image.open(image_path)
+        image = load_rgb_image(image_path)
         logging.info(f"DONE: image loaded, starting generation --> {image_path}")
 
         # process image
@@ -215,7 +240,7 @@ class Florence2BaseImageToText:
 
         # load in image
         logging.info(f"INFO: starting image to text extraction for image {image_path}...")
-        image = Image.open(image_path)
+        image = load_rgb_image(image_path)
         task = "<DETAILED_CAPTION>"
         inputs = self.processor(text=task, images=image, return_tensors="pt").to(device, torch_dtype)
         generated_ids = self.model.generate(
@@ -275,7 +300,7 @@ class Florence2LargeImageToText:
 
         # load in image
         logging.info(f"INFO: starting image to text extraction for image {image_path}...")
-        image = Image.open(image_path)
+        image = load_rgb_image(image_path)
         task = "<DETAILED_CAPTION>"
         inputs = self.processor(text=task, images=image, return_tensors="pt").to(device, torch_dtype)
         generated_ids = self.model.generate(
@@ -341,7 +366,7 @@ class SmolVLM256ImageToText:
 
         # load in image
         print(f"INFO: starting image to text extraction for image {image_path}...")
-        image = Image.open(image_path)
+        image = load_rgb_image(image_path)
         # Create input messages
         messages = [
             {
@@ -427,7 +452,7 @@ class SmolVLM500ImageToText:
 
         # load in image
         print(f"INFO: starting image to text extraction for image {image_path}...")
-        image = Image.open(image_path)
+        image = load_rgb_image(image_path)
         # Create input messages
         messages = [
             {
