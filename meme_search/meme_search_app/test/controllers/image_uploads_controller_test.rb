@@ -5,12 +5,13 @@ class ImageUploadsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @upload_dir = Rails.root.join("public", "memes", "direct-uploads")
     FileUtils.mkdir_p(@upload_dir)
+    @existing_upload_files = Dir.glob(File.join(@upload_dir, "*")).select { |file| File.file?(file) }
   end
 
   def teardown
     # Clean up test uploads
     Dir.glob(File.join(@upload_dir, "*")).each do |file|
-      File.delete(file) if File.file?(file)
+      File.delete(file) if File.file?(file) && !@existing_upload_files.include?(file)
     end
   end
 
