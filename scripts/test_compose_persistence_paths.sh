@@ -51,11 +51,21 @@ validate_compose_file() {
     assert_contains "$rendered_config" "target: /app/public/memes/direct-uploads"
     assert_contains "$rendered_config" "target: /app/db"
     assert_contains "$rendered_config" "target: /root/.cache/huggingface"
+    assert_contains "$rendered_config" "source: meme_search_direct_uploads"
+    assert_contains "$rendered_config" "source: meme_search_generator_db"
+    assert_contains "$rendered_config" "source: meme_search_models"
+    assert_not_contains "$rendered_config" "meme_search/direct-uploads"
+    assert_not_contains "$rendered_config" "meme_search/db_data/image_to_text_generator"
+    assert_not_contains "$rendered_config" "meme_search/models"
 }
 
 assert_directory_exists "meme_search/direct-uploads"
 assert_directory_exists "meme_search/db_data/image_to_text_generator"
 assert_directory_exists "meme_search/models"
+
+git check-ignore --quiet "$ROOT_DIR/meme_search/direct-uploads/example.png" || fail "Expected direct upload files to be ignored"
+git check-ignore --quiet "$ROOT_DIR/meme_search/db_data/image_to_text_generator/state.json" || fail "Expected generator runtime files to be ignored"
+git check-ignore --quiet "$ROOT_DIR/meme_search/models/config.json" || fail "Expected model cache files to be ignored"
 
 validate_compose_file "docker-compose.yml"
 validate_compose_file "docker-compose-local-build.yml"
