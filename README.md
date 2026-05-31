@@ -162,6 +162,32 @@ This pulls and starts containers for the app, database, Solid Queue job worker, 
 http://localhost:3000
 ```
 
+The Compose files store app data in local bind-mounted directories so upgrades keep using the same files:
+
+- `./meme_search/db_data/meme-search-db` for Postgres data
+- `./meme_search/direct-uploads` for drag-and-drop uploads
+- `./meme_search/db_data/image_to_text_generator` for generator queue data
+- `./meme_search/models` for model downloads
+
+Most Docker installations create missing bind-mount directories automatically. Some Docker frontends, including Synology Container Manager, require the directories to exist before startup.
+Compose also runs a short setup container at startup to make the upload directory writable by the non-root Rails containers, so the configured upload path may be owned by UID/GID `1000` after the first run.
+
+If you want these persistent files visible on a NAS path, set the storage path variables in `.env` or directly in your Compose UI:
+
+```sh
+MEME_SEARCH_DB_PATH=/volume1/docker/meme-search/db
+MEME_SEARCH_DIRECT_UPLOADS_PATH=/volume1/docker/meme-search/direct-uploads
+MEME_SEARCH_GENERATOR_DB_PATH=/volume1/docker/meme-search/image-to-text-db
+MEME_SEARCH_MODELS_PATH=/volume1/docker/meme-search/models
+```
+
+For Docker frontends that require bind-mount directories to exist first, create them before starting:
+
+```sh
+mkdir -p ./meme_search/db_data/meme-search-db ./meme_search/direct-uploads ./meme_search/db_data/image_to_text_generator ./meme_search/models
+mkdir -p /volume1/docker/meme-search/db /volume1/docker/meme-search/direct-uploads /volume1/docker/meme-search/image-to-text-db /volume1/docker/meme-search/models
+```
+
 To start the app alone pull the repo and cd into the `meme_search/meme_search/meme_search_app`. Once there execute the following to start the app in development mode
 
 ```sh
