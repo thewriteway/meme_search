@@ -5,7 +5,7 @@ services:
       dockerfile: ./meme_search/meme_search_app/Dockerfile
     container_name: meme_search
     environment:
-      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:${DB_PORT:-5432}/meme_search"
+      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:5432/meme_search"
       IMAGE_DESCRIPTION_PROVIDER: "${IMAGE_DESCRIPTION_PROVIDER:-local}"
       OPENAI_API_BASE_URL: "${OPENAI_API_BASE_URL:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
@@ -27,7 +27,7 @@ services:
     container_name: meme_search_jobs
     command: ./bin/jobs
     environment:
-      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:${DB_PORT:-5432}/meme_search"
+      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:5432/meme_search"
       IMAGE_DESCRIPTION_PROVIDER: "${IMAGE_DESCRIPTION_PROVIDER:-local}"
       OPENAI_API_BASE_URL: "${OPENAI_API_BASE_URL:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
