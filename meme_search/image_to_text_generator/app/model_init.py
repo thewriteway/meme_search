@@ -27,7 +27,16 @@ def load_rgb_image(image_path):
     image = Image.open(image_path)
     mode = getattr(image, "mode", None)
     if isinstance(mode, str) and mode != "RGB":
-        converted_image = image.convert("RGB")
+        has_alpha = mode in ("RGBA", "LA") or image.info.get("transparency") is not None
+        if has_alpha:
+            image_rgba = image.convert("RGBA")
+            background = Image.new("RGBA", image_rgba.size, (255, 255, 255, 255))
+            background.alpha_composite(image_rgba)
+            converted_image = background.convert("RGB")
+            image_rgba.close()
+            background.close()
+        else:
+            converted_image = image.convert("RGB")
         image.close()
         return converted_image
 

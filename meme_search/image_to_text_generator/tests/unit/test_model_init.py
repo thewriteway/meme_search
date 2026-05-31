@@ -50,6 +50,16 @@ def test_load_rgb_image_converts_non_rgb_images(tmp_path, mode, filename):
     assert image.size == (2, 2)
 
 
+def test_load_rgb_image_flattens_transparency_on_white(tmp_path):
+    image_path = tmp_path / "transparent-hidden-red.png"
+    Image.new("RGBA", (1, 1), (255, 0, 0, 0)).save(image_path)
+
+    image = load_rgb_image(image_path)
+
+    assert image.mode == "RGB"
+    assert image.getpixel((0, 0)) == (255, 255, 255)
+
+
 class TestTestImageToText:
     """Test suite for TestImageToText model (test/mock model)"""
 
@@ -357,6 +367,7 @@ class TestFlorence2BaseImageToText:
         assert captured["return_tensors"] == "pt"
         assert captured["images"].mode == "RGB"
         assert captured["images"].size == (3, 2)
+        assert captured["images"].getpixel((0, 0)) == (255, 127, 127)
 
     @patch('model_init.Image.open')
     @patch('model_init.AutoProcessor.from_pretrained')
