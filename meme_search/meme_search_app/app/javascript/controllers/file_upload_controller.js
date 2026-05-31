@@ -59,6 +59,40 @@ export default class extends Controller {
     this.addFiles(files);
   }
 
+  handlePaste(event) {
+    const clipboardItems = Array.from(event.clipboardData?.items || []);
+    const pastedFiles = clipboardItems
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file) => file && file.type.match(/^image\/(jpeg|jpg|png|webp)$/))
+      .map((file, index) => this.withClipboardFilename(file, index));
+
+    if (pastedFiles.length === 0) return;
+
+    event.preventDefault();
+    this.addFiles(pastedFiles);
+  }
+
+  withClipboardFilename(file, index) {
+    if (file.name && !file.name.match(/^image\.(png|jpe?g|webp)$/i)) {
+      return file;
+    }
+
+    const extensionsByType = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    };
+    const extension = extensionsByType[file.type] || "png";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+    return new File([file], `clipboard-${timestamp}-${index + 1}.${extension}`, {
+      type: file.type,
+      lastModified: file.lastModified,
+    });
+  }
+
   // Add files to the list
   addFiles(newFiles) {
     // Filter for images only
