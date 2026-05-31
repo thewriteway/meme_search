@@ -278,7 +278,7 @@ To customize the main app port create a `.env` file locally in the root of the d
 APP_PORT= # the port for the app - defaults to 3000
 ```
 
-This value is automatically detected and loaded into each service via the `docker-compose-pro.yml` file.
+This value is automatically detected and loaded into each service via the Compose files. The Postgres service is only exposed on Docker's internal network, so app containers always talk to it at `meme-search-db:5432`.
 
 ### Building the app locally with Docker
 
