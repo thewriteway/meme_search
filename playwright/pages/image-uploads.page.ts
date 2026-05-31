@@ -13,8 +13,8 @@ export class ImageUploadsPage {
   }
 
   async getHeading(): Promise<string> {
-    const heading = await this.page.locator('h1').first();
-    return heading.textContent() || '';
+    const heading = this.page.locator('h1').first();
+    return (await heading.textContent()) || '';
   }
 
   async isDropzoneVisible(): Promise<boolean> {
@@ -32,10 +32,44 @@ export class ImageUploadsPage {
     await fileInput.setInputFiles(filePath);
   }
 
+  async pasteImage(base64Image: string, filename = 'clipboard.png', mimeType = 'image/png') {
+    await this.pasteFiles([{ base64: base64Image, filename, mimeType }]);
+  }
+
+  async pasteFiles(files: Array<{ base64: string; filename: string; mimeType: string }>) {
+    await this.page.evaluate(
+      ({ files }) => {
+        const browserGlobal = globalThis as any;
+        const dataTransfer = new browserGlobal.DataTransfer();
+
+        for (const fileDetails of files) {
+          const bytes = Uint8Array.from(browserGlobal.atob(fileDetails.base64), (character: string) => character.charCodeAt(0));
+          const file = new browserGlobal.File([bytes], fileDetails.filename, { type: fileDetails.mimeType });
+          dataTransfer.items.add(file);
+        }
+
+        const pasteEvent = new browserGlobal.Event('paste', { bubbles: true, cancelable: true });
+
+        Object.defineProperty(pasteEvent, 'clipboardData', {
+          value: dataTransfer,
+        });
+
+        browserGlobal.dispatchEvent(pasteEvent);
+      },
+      { files }
+    );
+  }
+
   async getPreviewCount(): Promise<number> {
     const preview = this.page.locator('[data-file-upload-target="preview"]');
     const items = preview.locator('> div');
     return items.count();
+  }
+
+  async getPreviewFilenames(): Promise<string[]> {
+    return this.page
+      .locator('[data-file-upload-target="preview"] p.text-sm')
+      .evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim() || ''));
   }
 
   async clickUpload() {

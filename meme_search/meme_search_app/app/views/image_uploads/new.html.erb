@@ -1,8 +1,8 @@
-<div class="flex flex-col items-center justify-center px-4 py-8" data-controller="file-upload">
+<div class="flex flex-col items-center justify-center px-4 py-8" data-controller="file-upload" data-action="paste@window->file-upload#handlePaste">
   <!-- Page Header -->
   <div class="text-center mb-6">
     <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Upload Images</h1>
-    <p class="text-gray-600 dark:text-gray-400 mt-2">Drag and drop images or click to browse</p>
+    <p class="text-gray-600 dark:text-gray-400 mt-2">Drag and drop, paste, or click to browse</p>
   </div>
 
   <!-- Glassmorphic Card Wrapper -->
@@ -32,7 +32,7 @@
 
       <label for="file-input" class="cursor-pointer">
         <span class="text-blue-600 dark:text-blue-400 font-medium hover:underline">Click to upload</span>
-        <span class="text-gray-600 dark:text-gray-400"> or drag and drop</span>
+        <span class="text-gray-600 dark:text-gray-400">, drag and drop, or paste</span>
       </label>
 
       <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
