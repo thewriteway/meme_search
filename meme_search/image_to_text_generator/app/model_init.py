@@ -26,17 +26,22 @@ tokenizer = None
 def load_rgb_image(image_path):
     image = Image.open(image_path)
     mode = getattr(image, "mode", None)
+    image_info = getattr(image, "info", {})
+    has_transparency = isinstance(image_info, dict) and image_info.get("transparency") is not None
+    has_alpha = mode in ("RGBA", "LA") or has_transparency
+
+    if has_alpha:
+        image_rgba = image.convert("RGBA")
+        background = Image.new("RGBA", image_rgba.size, (255, 255, 255, 255))
+        background.alpha_composite(image_rgba)
+        converted_image = background.convert("RGB")
+        image_rgba.close()
+        background.close()
+        image.close()
+        return converted_image
+
     if isinstance(mode, str) and mode != "RGB":
-        has_alpha = mode in ("RGBA", "LA") or image.info.get("transparency") is not None
-        if has_alpha:
-            image_rgba = image.convert("RGBA")
-            background = Image.new("RGBA", image_rgba.size, (255, 255, 255, 255))
-            background.alpha_composite(image_rgba)
-            converted_image = background.convert("RGB")
-            image_rgba.close()
-            background.close()
-        else:
-            converted_image = image.convert("RGB")
+        converted_image = image.convert("RGB")
         image.close()
         return converted_image
 

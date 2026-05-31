@@ -60,6 +60,16 @@ def test_load_rgb_image_flattens_transparency_on_white(tmp_path):
     assert image.getpixel((0, 0)) == (255, 255, 255)
 
 
+def test_load_rgb_image_flattens_rgb_png_transparency_on_white(tmp_path):
+    image_path = tmp_path / "rgb-trns.png"
+    Image.new("RGB", (1, 1), (255, 0, 0)).save(image_path, transparency=(255, 0, 0))
+
+    image = load_rgb_image(image_path)
+
+    assert image.mode == "RGB"
+    assert image.getpixel((0, 0)) == (255, 255, 255)
+
+
 class TestTestImageToText:
     """Test suite for TestImageToText model (test/mock model)"""
 
