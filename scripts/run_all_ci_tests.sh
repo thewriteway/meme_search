@@ -123,6 +123,14 @@ if [ ! -f "package.json" ] || [ ! -d "meme_search" ]; then
 fi
 echo -e "${GREEN}✓ Running from project root${NC}"
 
+print_header "Docker Compose: Persistence Path Tests"
+if bash scripts/test_compose_persistence_paths.sh; then
+    echo -e "${GREEN}✓ Docker Compose persistence path tests passed${NC}"
+else
+    echo -e "${RED}❌ Docker Compose persistence path tests failed${NC}"
+    track_failure "Docker Compose: Persistence Path Tests"
+fi
+
 # Parse command line arguments
 SKIP_E2E=false
 SKIP_RAILS=false

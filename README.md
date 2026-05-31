@@ -162,6 +162,8 @@ This pulls and starts containers for the app, database, Solid Queue job worker, 
 http://localhost:3000
 ```
 
+The Compose file uses a named volume for Postgres data and includes empty placeholder directories for generator queue data, model downloads, and direct uploads. If you copy the Compose services into a different folder or a NAS/container-manager UI, create the referenced host directories before starting the stack if your Docker frontend does not create bind-mount directories automatically.
+
 To start the app alone pull the repo and cd into the `meme_search/meme_search/meme_search_app`. Once there execute the following to start the app in development mode
 
 ```sh

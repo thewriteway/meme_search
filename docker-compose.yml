@@ -66,7 +66,7 @@ services:
     image: pgvector/pgvector:pg17
     container_name: meme-search-db # note: must use - and not _ as ActiveRecord uses URI::RFC2396_Parser to parse database URLs
     volumes:
-      - ./meme_search/db_data/meme-search-db:/var/lib/postgresql/data
+      - meme_search_db_data:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: meme_search
       POSTGRES_USER: postgres
@@ -78,3 +78,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  meme_search_db_data:
