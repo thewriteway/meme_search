@@ -18,6 +18,7 @@ end
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+require "minitest/mock"
 require "webmock/minitest"
 
 # Allow real HTTP connections in tests (only stub specific requests)
@@ -37,6 +38,7 @@ module ActiveSupport
     # Clear enqueued jobs before each test
     setup do
       clear_enqueued_jobs if respond_to?(:clear_enqueued_jobs)
+      DescriptionProviderSetting.delete_all if defined?(DescriptionProviderSetting)
     end
 
     # Add more helper methods to be used by all tests here...

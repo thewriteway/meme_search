@@ -3,77 +3,114 @@ import type { Page, Locator } from '@playwright/test';
 export class ImageToTextsPage {
   readonly page: Page;
   readonly heading: Locator;
+  readonly localTab: Locator;
+  readonly openAiTab: Locator;
+  readonly saveLocalButton: Locator;
+  readonly saveCloudButton: Locator;
+  readonly clearSavedKeyButton: Locator;
+  readonly baseUrlInput: Locator;
+  readonly cloudModelSelect: Locator;
+  readonly apiKeyInput: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.heading = page.locator('h1');
+    this.localTab = page.getByRole('button', { name: 'Local generator' });
+    this.openAiTab = page.getByRole('button', { name: 'OpenAI-compatible API' });
+    this.saveLocalButton = page.getByRole('button', { name: 'Save Local Selection' });
+    this.saveCloudButton = page.getByRole('button', { name: 'Save Cloud Selection' });
+    this.clearSavedKeyButton = page.getByRole('button', { name: 'Clear saved key' });
+    this.baseUrlInput = page.getByLabel('Base URL');
+    this.cloudModelSelect = page.getByLabel('Cloud model');
+    this.apiKeyInput = page.getByLabel('API key');
   }
 
-  /**
-   * Navigate to the image-to-texts settings page
-   */
-  async goto(): Promise<void> {
-    await this.page.goto('/settings/image_to_texts');
+  async goto(providerTab: 'local' | 'openai' = 'local'): Promise<void> {
+    await this.page.goto(`/settings/image_to_texts?provider_tab=${providerTab}`);
     await this.page.waitForLoadState('networkidle');
   }
 
-  /**
-   * Get the page heading text
-   */
   async getHeading(): Promise<string> {
     return (await this.heading.textContent()) || '';
   }
 
-  /**
-   * Get a model checkbox input by ID
-   */
-  getModelCheckbox(modelId: number): Locator {
-    return this.page.locator(`input[id='${modelId}']`);
+  getModelRadio(modelId: number): Locator {
+    return this.page.locator(`#image_to_text_${modelId}`);
   }
 
-  /**
-   * Get a model label by ID
-   */
   getModelLabel(modelId: number): Locator {
-    return this.page.locator(`label[for='${modelId}']`);
+    return this.page.locator(`label[for='image_to_text_${modelId}']`);
   }
 
-  /**
-   * Check if a model is selected
-   */
   async isModelSelected(modelId: number): Promise<boolean> {
-    const checkbox = this.getModelCheckbox(modelId);
-    return await checkbox.isChecked();
+    return await this.getModelRadio(modelId).isChecked();
   }
 
-  /**
-   * Select a model by clicking its label
-   */
   async selectModel(modelId: number): Promise<void> {
-    const label = this.getModelLabel(modelId);
-    await label.click();
-    // Wait for the state to update (toggle switches can have animations/transitions)
-    await this.page.waitForTimeout(500);
+    await this.getModelLabel(modelId).click();
   }
 
-  /**
-   * Get all model checkboxes
-   */
-  async getAllModelCheckboxes(): Promise<Locator[]> {
-    const checkboxes = await this.page.locator('input[type="checkbox"]').all();
-    return checkboxes;
+  async saveLocalSelection(): Promise<void> {
+    await Promise.all([
+      this.page.waitForURL(/\/settings\/image_to_texts\?provider_tab=local/),
+      this.saveLocalButton.click(),
+    ]);
+    await this.page.waitForLoadState('networkidle');
   }
 
-  /**
-   * Get the count of model checkboxes
-   */
   async getModelCount(): Promise<number> {
-    return await this.page.locator('input[type="checkbox"]').count();
+    return await this.page.locator('input[name="current_id"]').count();
   }
 
-  /**
-   * Verify that only one model is selected
-   */
+  async openLocalTab(): Promise<void> {
+    await Promise.all([
+      this.page.waitForURL(/\/settings\/image_to_texts\?provider_tab=local/),
+      this.localTab.click(),
+    ]);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async openCloudTab(): Promise<void> {
+    await Promise.all([
+      this.page.waitForURL(/\/settings\/image_to_texts\?provider_tab=openai/),
+      this.openAiTab.click(),
+    ]);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async saveCloudSettings(options: { baseUrl: string; model: string; apiKey?: string }): Promise<void> {
+    await this.baseUrlInput.fill(options.baseUrl);
+    await this.cloudModelSelect.selectOption(options.model);
+
+    if (options.apiKey !== undefined) {
+      await this.apiKeyInput.fill(options.apiKey);
+    }
+
+    await Promise.all([
+      this.page.waitForURL(/\/settings\/image_to_texts\?provider_tab=openai/),
+      this.saveCloudButton.click(),
+    ]);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async clearSavedKey(): Promise<void> {
+    await Promise.all([
+      this.page.waitForURL(/\/settings\/image_to_texts\?provider_tab=openai/),
+      this.clearSavedKeyButton.click(),
+    ]);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async cloudModelOptions(): Promise<string[]> {
+    return await this.cloudModelSelect.locator('option').evaluateAll((options) =>
+      options.map((option) => (option as HTMLOptionElement).value),
+    );
+  }
+
+  async getAllModelRadios(): Promise<Locator[]> {
+    return await this.page.locator('input[name="current_id"]').all();
+  }
+
   async verifyOnlyOneModelSelected(selectedId: number, allIds: number[]): Promise<void> {
     for (const id of allIds) {
       const isChecked = await this.isModelSelected(id);

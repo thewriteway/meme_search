@@ -1,0 +1,101 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "pathname"
+
+APP_ROOT = Pathname.new(__dir__).join("..").expand_path
+REPO_ROOT = APP_ROOT.join("../..").expand_path
+
+def load_env_file(path)
+  return unless path.file?
+
+  path.each_line do |line|
+    line = line.strip
+    next if line.empty? || line.start_with?("#") || !line.include?("=")
+
+    key, value = line.split("=", 2)
+    key = key.strip
+    value = value.strip.delete_prefix("\"").delete_suffix("\"").delete_prefix("'").delete_suffix("'")
+    ENV[key] = value unless ENV.key?(key)
+  end
+end
+
+load_env_file(REPO_ROOT.join(".env"))
+load_env_file(APP_ROOT.join(".env"))
+
+require_relative "../config/environment"
+
+setting = DescriptionProviderSetting.current
+original_setting_attributes = setting.attributes.slice("provider", "openai_base_url", "openai_model")
+at_exit do
+  setting.update!(original_setting_attributes) if setting&.persisted?
+end
+
+setting.update!(
+  provider: "openai",
+  openai_base_url: ENV["OPENAI_API_BASE_URL"].presence || setting.openai_base_url,
+  openai_model: ENV["OPENAI_VISION_MODEL"].presence || setting.openai_model
+)
+
+configuration = ImageDescriptionProviders::Configuration.current
+unless configuration.openai_api_key.present?
+  abort "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY."
+end
+
+def existing_sample_image_core
+  ImageCore.includes(:image_path).find_each.find do |image_core|
+    File.file?(image_file_path(image_core))
+  end
+end
+
+def image_file_path(image_core)
+  Rails.root.join("public", "memes", image_core.image_path.name, image_core.name)
+end
+
+def sample_image_file
+  Rails.root.join("public", "memes").glob("**/*.{jpg,jpeg,png,webp,gif}", File::FNM_CASEFOLD).first
+end
+
+def sample_image_core
+  existing_sample_image_core || begin
+    path = sample_image_file
+    abort "No sample image exists under public/memes." unless path
+
+    relative_path = path.relative_path_from(Rails.root.join("public", "memes"))
+    image_path = ImagePath.create!(name: relative_path.dirname.to_s)
+    ImageCore.create!(image_path: image_path, name: relative_path.basename.to_s, status: :not_started)
+  end
+end
+
+puts "Running OpenAI live smoke test with #{configuration.openai_model}."
+
+result = nil
+
+ActiveRecord::Base.transaction do
+  image_core = sample_image_core
+  puts "ImageCore ##{image_core.id}: #{image_core.image_path.name}/#{image_core.name}"
+
+  attempt = image_core.start_description_generation_attempt!(
+    provider: "openai",
+    provider_settings: configuration.job_options
+  )
+  image_core.update!(status: :in_queue, description: nil)
+  provider_result = GenerateImageDescriptionJob.perform_now(image_core.id, configuration.job_options, attempt.id)
+
+  image_core.reload
+  result = {
+    status: image_core.status,
+    description: image_core.description.to_s,
+    message: provider_result&.message
+  }
+
+  raise ActiveRecord::Rollback
+end
+
+unless result[:status] == "done" && result[:description].present?
+  abort "OpenAI smoke test failed. Final status: #{result[:status].inspect}. Message: #{result[:message].presence || "none"}"
+end
+
+puts "OpenAI smoke test passed."
+puts "Generated description:"
+puts result[:description]

@@ -20,7 +20,7 @@ export default class extends Controller {
   ];
 
   static values = {
-    sessionActive: Boolean
+    operationActive: Boolean
   };
 
   connect() {
@@ -29,8 +29,8 @@ export default class extends Controller {
     // Restore state from localStorage
     this.restoreState();
 
-    // Start polling if session is active or localStorage indicates active operation
-    if (this.sessionActiveValue || this.isOperationActive()) {
+    // Start polling if the server has an active operation or localStorage indicates active operation
+    if (this.operationActiveValue || this.isOperationActive()) {
       this.showOverlay();
       this.startPolling();
     }

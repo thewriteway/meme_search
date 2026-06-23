@@ -15,8 +15,11 @@ import * as fs from 'fs';
 test.describe('Image Uploads', () => {
   let imageUploadsPage: ImageUploadsPage;
   let imagePathsPage: ImagePathsPage;
+  let directUploadsSnapshot: Set<string>;
   const testImagePath = path.join(__dirname, '../fixtures/test-image.jpg');
   const testInvalidPath = path.join(__dirname, '../fixtures/test-file.txt');
+  const directUploadsPath = path.join(__dirname, '../../meme_search/meme_search_app/public/memes/direct-uploads');
+  const jpegBase64 = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==';
 
   // Setup test fixtures
   test.beforeAll(async () => {
@@ -27,7 +30,6 @@ test.describe('Image Uploads', () => {
     }
 
     // Create a simple test image (1x1 pixel JPEG)
-    const jpegBase64 = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==';
     fs.writeFileSync(testImagePath, Buffer.from(jpegBase64, 'base64'));
 
     // Create a test text file (invalid type)
@@ -46,9 +48,27 @@ test.describe('Image Uploads', () => {
 
   // Reset database before each test
   test.beforeEach(async ({ page }) => {
+    if (!fs.existsSync(directUploadsPath)) {
+      fs.mkdirSync(directUploadsPath, { recursive: true });
+    }
+
+    directUploadsSnapshot = new Set(fs.readdirSync(directUploadsPath));
     await resetTestDatabase();
     imageUploadsPage = new ImageUploadsPage(page);
     imagePathsPage = new ImagePathsPage(page);
+  });
+
+  test.afterEach(async () => {
+    if (!fs.existsSync(directUploadsPath)) return;
+
+    for (const filename of fs.readdirSync(directUploadsPath)) {
+      if (directUploadsSnapshot.has(filename)) continue;
+
+      const uploadedFilePath = path.join(directUploadsPath, filename);
+      if (fs.statSync(uploadedFilePath).isFile()) {
+        fs.unlinkSync(uploadedFilePath);
+      }
+    }
   });
 
   test('should display upload page with drag-drop zone', async ({ page }) => {
@@ -57,6 +77,7 @@ test.describe('Image Uploads', () => {
     // Verify page heading
     const heading = await imageUploadsPage.getHeading();
     expect(heading).toContain('Upload Images');
+    await expect(page.getByText('Drag and drop, paste, or click to browse')).toBeVisible();
 
     // Verify dropzone is visible
     const dropzoneVisible = await imageUploadsPage.isDropzoneVisible();
@@ -93,6 +114,82 @@ test.describe('Image Uploads', () => {
     // Verify success message
     const hasSuccess = await imageUploadsPage.hasSuccessMessage();
     expect(hasSuccess).toBe(true);
+  });
+
+  test('should add pasted clipboard image to upload queue', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteImage(jpegBase64, 'image.png', 'image/png');
+    await page.waitForTimeout(500);
+
+    const previewCount = await imageUploadsPage.getPreviewCount();
+    expect(previewCount).toBe(1);
+    const previewFilenames = await imageUploadsPage.getPreviewFilenames();
+    expect(previewFilenames[0]).toMatch(/^clipboard-.*-1\.png$/);
+
+    const uploadButtonDisabled = await imageUploadsPage.isUploadButtonDisabled();
+    expect(uploadButtonDisabled).toBe(false);
+  });
+
+  test('should preserve useful pasted image filenames', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteImage(jpegBase64, 'copied-meme.jpg', 'image/jpeg');
+    await page.waitForTimeout(500);
+
+    await expect(page.getByText('copied-meme.jpg')).toBeVisible();
+  });
+
+  test('should add multiple pasted images in one paste event', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteFiles([
+      { base64: jpegBase64, filename: 'image.png', mimeType: 'image/png' },
+      { base64: jpegBase64, filename: 'second.jpg', mimeType: 'image/jpeg' },
+    ]);
+    await page.waitForTimeout(500);
+
+    const previewFilenames = await imageUploadsPage.getPreviewFilenames();
+    expect(previewFilenames).toHaveLength(2);
+    expect(previewFilenames[0]).toMatch(/^clipboard-.*-1\.png$/);
+    expect(previewFilenames[1]).toBe('second.jpg');
+    expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(false);
+  });
+
+  test('should ignore pasted non-image files without enabling upload', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteFiles([
+      { base64: Buffer.from('not an image').toString('base64'), filename: 'notes.txt', mimeType: 'text/plain' },
+    ]);
+    await page.waitForTimeout(500);
+
+    expect(await imageUploadsPage.getPreviewCount()).toBe(0);
+    expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(true);
+  });
+
+  test('should show an error for unsupported pasted image formats', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteFiles([
+      { base64: Buffer.from('gif bytes').toString('base64'), filename: 'animated.gif', mimeType: 'image/gif' },
+    ]);
+    await page.waitForTimeout(500);
+
+    expect(await imageUploadsPage.getPreviewCount()).toBe(0);
+    expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(true);
+    await expect(page.getByText('Pasted image format is not supported. Use JPG, PNG, or WEBP.')).toBeVisible();
+  });
+
+  test('should upload a pasted clipboard image', async ({ page }) => {
+    await imageUploadsPage.goto();
+
+    await imageUploadsPage.pasteImage(jpegBase64, 'image.png', 'image/png');
+    await page.waitForTimeout(500);
+    await imageUploadsPage.clickUpload();
+    await page.waitForTimeout(1000);
+
+    expect(await imageUploadsPage.hasSuccessMessage()).toBe(true);
   });
 
   test('should upload multiple image files', async ({ page }) => {

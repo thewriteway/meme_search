@@ -6,6 +6,8 @@ from constants import available_models, default_model
 class JobModel(BaseModel):
     image_core_id: int
     image_path: str
+    attempt_id: int
+    callback_token: str
     model: str = default_model
 
     @field_validator("model")

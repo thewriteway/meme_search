@@ -103,6 +103,11 @@ export async function triggerDescriptionGeneration(imageId: number): Promise<voi
 
     # Construct full file path
     full_path = File.join(image_path.name, image.name)
+    attempt = image.start_description_generation_attempt!(
+      provider: 'local',
+      provider_settings: { model: (model&.name || 'test') }
+    )
+    image.update!(status: :in_queue)
 
     uri = URI('http://python-service:8000/add_job')
     http = Net::HTTP.new(uri.host, uri.port)
@@ -111,7 +116,9 @@ export async function triggerDescriptionGeneration(imageId: number): Promise<voi
     params = {
       'image_core_id' => image.id,
       'image_path' => full_path,
-      'model' => (model&.name || 'test')
+      'model' => (model&.name || 'test'),
+      'attempt_id' => attempt.id,
+      'callback_token' => attempt.callback_token
     }
     request.body = params.to_json
 

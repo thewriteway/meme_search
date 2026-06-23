@@ -2,6 +2,8 @@ require "test_helper"
 require "minitest/mock"
 
 class ImageCoresControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   def setup
     @image_core = image_cores(:one)
     @image_path = image_paths(:one)
@@ -221,15 +223,10 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       current: true
     )
 
-    mock_response = Minitest::Mock.new
-    mock_response.expect(:is_a?, true, [ Net::HTTPSuccess ])
+    stub_request(:post, "http://image_to_text_generator:8000/add_job")
+      .to_return(status: 200, body: '{"status":"queued"}', headers: { "Content-Type" => "application/json" })
 
-    mock_http = Minitest::Mock.new
-    mock_http.expect(:request, mock_response, [ Net::HTTP::Post ])
-
-    Net::HTTP.stub(:new, mock_http) do
-      post generate_description_image_core_url(@image_core)
-    end
+    post generate_description_image_core_url(@image_core)
 
     @image_core.reload
     assert_equal "in_queue", @image_core.status
@@ -261,22 +258,146 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       current: true
     )
 
-    mock_response = Minitest::Mock.new
-    mock_response.expect(:is_a?, false, [ Net::HTTPSuccess ])
+    stub_request(:post, "http://image_to_text_generator:8000/add_job")
+      .to_return(status: 503, body: '{"error":"offline"}', headers: { "Content-Type" => "application/json" })
 
-    mock_http = Minitest::Mock.new
-    mock_http.expect(:request, mock_response, [ Net::HTTP::Post ])
+    post generate_description_image_core_url(@image_core)
+    assert_redirected_to root_path
+    assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
+    assert_equal "failed", @image_core.reload.status
+  end
 
-    Net::HTTP.stub(:new, mock_http) do
-      post generate_description_image_core_url(@image_core)
-      assert_redirected_to root_path
-      assert_equal "Cannot generate description, your image to text genertaor is offline!", flash[:alert]
+  test "single image generate description enqueues openai job with an active attempt" do
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+    provider = Object.new
+    provider.define_singleton_method(:name) { "openai" }
+    provider.define_singleton_method(:queued_provider?) { false }
+    provider.define_singleton_method(:generate) { |_image_core| flunk "openai should be enqueued, not generated inline" }
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        assert_difference("ImageDescriptionGenerationAttempt.count", 1) do
+          assert_enqueued_jobs 1, only: GenerateImageDescriptionJob do
+            post generate_description_image_core_url(image_core)
+          end
+        end
+      end
     end
+
+    assert_redirected_to root_path
+    assert_equal "Queued description generation.", flash[:notice]
+    assert_equal "in_queue", image_core.reload.status
+    assert_equal "queued", image_core.active_description_generation_attempt.status
+  end
+
+  test "bulk generate descriptions enqueues jobs for openai provider without calling api inline" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    test_case = self
+    provider = Object.new
+    provider.define_singleton_method(:name) { "openai" }
+    provider.define_singleton_method(:queued_provider?) { false }
+    provider.define_singleton_method(:generate) do |_image_core|
+      test_case.flunk "provider.generate should not run inline for openai bulk generation"
+    end
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        assert_difference("ImageDescriptionGenerationAttempt.count", 1) do
+          assert_enqueued_jobs 1, only: GenerateImageDescriptionJob do
+            post bulk_generate_descriptions_image_cores_url
+          end
+        end
+      end
+    end
+
+    assert_redirected_to image_cores_path
+    assert_match "Queued 1 images", flash[:notice]
+    assert_equal "in_queue", image_core.reload.status
+    assert_equal "queued", image_core.active_description_generation_attempt.status
+  end
+
+  test "bulk generate descriptions passes active attempt id to openai job" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    provider = Object.new
+    provider.define_singleton_method(:name) { "openai" }
+    provider.define_singleton_method(:queued_provider?) { false }
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post bulk_generate_descriptions_image_cores_url
+      end
+    end
+
+    attempt = image_core.reload.active_description_generation_attempt
+    job_args = enqueued_jobs.last.fetch(:args)
+    assert_equal image_core.id, job_args[0]
+    assert_equal "openai", job_args[1]["provider"]
+    assert_equal attempt.id, job_args[2]
+  end
+
+  test "bulk generate descriptions enqueues openai jobs with non-secret provider settings" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    provider = Object.new
+    provider.define_singleton_method(:name) { "openai" }
+    provider.define_singleton_method(:queued_provider?) { false }
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai", "OPENAI_API_KEY" => "secret-test-key") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+          post bulk_generate_descriptions_image_cores_url
+      end
+    end
+
+    job_args = enqueued_jobs.last.fetch(:args)
+    assert_equal "openai", job_args[1]["provider"]
+    assert_not job_args.inspect.include?("secret-test-key")
+  end
+
+  test "bulk operation cancel uses provider mode captured when operation was queued" do
+    ImageCore.update_all(description: "already described", status: ImageCore.statuses[:done])
+    image_core = image_cores(:one)
+    image_core.update!(description: nil, status: :not_started)
+
+    test_case = self
+    provider = Object.new
+    provider.define_singleton_method(:name) { "openai" }
+    provider.define_singleton_method(:queued_provider?) { false }
+    provider.define_singleton_method(:generate) do |_queued_image|
+      test_case.flunk "provider.generate should not run inline for openai bulk generation"
+    end
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post bulk_generate_descriptions_image_cores_url
+      end
+    end
+
+    assert_equal "in_queue", image_core.reload.status
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "local") do
+      Net::HTTP.stub(:new, ->(_host, _port) { flunk "local queue removal should not run for an OpenAI bulk operation" }) do
+        post bulk_operation_cancel_image_cores_url, as: :json
+      end
+    end
+
+    assert_response :success
+    assert_equal 1, response.parsed_body["cancelled_count"]
+    assert_equal "not_started", image_core.reload.status
   end
 
   # Generate stopper tests
   test "generate_stopper should remove job from queue" do
     @image_core.update!(status: :in_queue)
+    @image_core.start_description_generation_attempt!(provider: "local")
 
     mock_response = Minitest::Mock.new
     mock_response.expect(:is_a?, true, [ Net::HTTPSuccess ])
@@ -291,7 +412,26 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     end
 
     @image_core.reload
-    assert_equal "removing", @image_core.status
+    assert_equal "not_started", @image_core.status
+    assert_equal "canceled", @image_core.image_description_generation_attempts.last.status
+  end
+
+  test "generate_stopper should cancel openai queued job locally" do
+    @image_core.update!(status: :in_queue)
+    provider = Minitest::Mock.new
+    provider.expect(:queued_provider?, false)
+    @image_core.start_description_generation_attempt!(provider: "openai")
+
+    with_env("IMAGE_DESCRIPTION_PROVIDER" => "openai") do
+      ImageDescriptionProviders::Factory.stub(:build, provider) do
+        post generate_stopper_image_core_url(@image_core)
+      end
+    end
+
+    provider.verify
+    assert_redirected_to root_path
+    assert_equal "Removed from process queue.", flash[:notice]
+    assert_equal "not_started", @image_core.reload.status
   end
 
   test "generate_stopper should not remove if not in_queue" do
@@ -305,6 +445,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
   # Webhook receiver tests
   test "description_receiver should update description and broadcast" do
     new_description = "AI generated description"
+    attempt = local_attempt_for(@image_core)
 
     # Mock ActionCable broadcast
     ActionCable.server.stub(:broadcast, ->(channel, data) {
@@ -314,7 +455,9 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       post description_receiver_image_cores_url, params: {
         data: {
           image_core_id: @image_core.id,
-          description: new_description
+          description: new_description,
+          attempt_id: attempt.id,
+          callback_token: attempt.callback_token
         }
       }
     end
@@ -326,6 +469,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
   test "description_receiver should refresh embeddings" do
     # Mock the ImageCore instance to stub refresh_description_embeddings
     mock_image_core = @image_core
+    attempt = local_attempt_for(mock_image_core)
     mock_image_core.stub(:refresh_description_embeddings, -> {
       # Verify this is called
     }) do
@@ -333,7 +477,9 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
         post description_receiver_image_cores_url, params: {
           data: {
             image_core_id: @image_core.id,
-            description: "New description"
+            description: "New description",
+            attempt_id: attempt.id,
+            callback_token: attempt.callback_token
           }
         }
         # Verify the request succeeded
@@ -344,6 +490,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   test "status_receiver should update status and broadcast" do
     new_status = 3 # done
+    attempt = local_attempt_for(@image_core)
 
     # Mock ActionCable broadcast
     ActionCable.server.stub(:broadcast, ->(channel, data) {
@@ -352,13 +499,15 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       post status_receiver_image_cores_url, params: {
         data: {
           image_core_id: @image_core.id,
-          status: new_status
+          status: new_status,
+          attempt_id: attempt.id,
+          callback_token: attempt.callback_token
         }
       }
     end
 
     @image_core.reload
-    assert_equal "done", @image_core.status
+    assert_equal "in_queue", @image_core.status
   end
 
   # Rate limiting tests
@@ -403,11 +552,14 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     image_core = image_cores(:one)
     original_description = image_core.description
     new_description = "A cat sitting on a laptop with funny text"
+    attempt = local_attempt_for(image_core)
 
     post description_receiver_image_cores_url, params: {
       data: {
         image_core_id: image_core.id,
-        description: new_description
+        description: new_description,
+        attempt_id: attempt.id,
+        callback_token: attempt.callback_token
       }
     }, as: :json
 
@@ -419,12 +571,15 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
   test "description_receiver should broadcast to image_description_channel" do
     image_core = image_cores(:one)
     description = "AI generated description"
+    attempt = local_attempt_for(image_core)
 
     assert_broadcasts "image_description_channel", 1 do
       post description_receiver_image_cores_url, params: {
         data: {
           image_core_id: image_core.id,
-          description: description
+          description: description,
+          attempt_id: attempt.id,
+          callback_token: attempt.callback_token
         }
       }, as: :json
     end
@@ -432,6 +587,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   test "description_receiver should refresh description embeddings" do
     image_core = image_cores(:one)
+    attempt = local_attempt_for(image_core)
 
     # Create initial embedding
     original_embedding = ImageEmbedding.create!(
@@ -459,7 +615,9 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     post description_receiver_image_cores_url, params: {
       data: {
         image_core_id: image_core.id,
-        description: long_description
+        description: long_description,
+        attempt_id: attempt.id,
+        callback_token: attempt.callback_token
       }
     }, as: :json
 
@@ -475,13 +633,16 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   test "description_receiver should skip CSRF token verification" do
     image_core = image_cores(:one)
+    attempt = local_attempt_for(image_core)
 
     # Post without CSRF token (would normally fail)
     assert_nothing_raised do
       post description_receiver_image_cores_url, params: {
         data: {
           image_core_id: image_core.id,
-          description: "Test description"
+          description: "Test description",
+          attempt_id: attempt.id,
+          callback_token: attempt.callback_token
         }
       }, as: :json
     end
@@ -493,12 +654,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   # PHASE 2: description_receiver error cases
 
-  test "description_receiver should handle missing image_core_id" do
-    # Current behavior: params[:data][:image_core_id] is nil
-    # .to_i on nil returns 0, then find(0) raises RecordNotFound
-    # Rails rescues and returns 404 Not Found
-    # Future improvement: Add parameter validation and return 400 Bad Request
-
+  test "description_receiver should reject missing image_core_id" do
     post description_receiver_image_cores_url, params: {
       data: {
         description: "Test description"
@@ -506,16 +662,11 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       }
     }, as: :json
 
-    # Rails catches RecordNotFound and returns 404
-    assert_response :not_found
+    assert_response :unauthorized
   end
 
-  test "description_receiver should handle invalid image_core_id" do
+  test "description_receiver should reject invalid image_core_id" do
     invalid_id = 999999
-
-    # Current behavior: find(999999) raises RecordNotFound
-    # Rails rescues and returns 404 Not Found
-    # This is actually correct behavior
 
     post description_receiver_image_cores_url, params: {
       data: {
@@ -524,8 +675,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       }
     }, as: :json
 
-    # Rails catches RecordNotFound and returns 404
-    assert_response :not_found
+    assert_response :unauthorized
   end
 
   # PHASE 3: status_receiver success cases
@@ -534,11 +684,14 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     image_core = image_cores(:one)
     original_status = image_core.status
     new_status = 2  # processing
+    attempt = local_attempt_for(image_core)
 
     post status_receiver_image_cores_url, params: {
       data: {
         image_core_id: image_core.id,
-        status: new_status
+        status: new_status,
+        attempt_id: attempt.id,
+        callback_token: attempt.callback_token
       }
     }, as: :json
 
@@ -549,31 +702,37 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   test "status_receiver should broadcast to image_status_channel" do
     image_core = image_cores(:one)
-    new_status = 3  # done
+    new_status = 2  # processing
+    attempt = local_attempt_for(image_core)
 
     assert_broadcasts "image_status_channel", 1 do
       post status_receiver_image_cores_url, params: {
         data: {
           image_core_id: image_core.id,
-          status: new_status
+          status: new_status,
+          attempt_id: attempt.id,
+          callback_token: attempt.callback_token
         }
       }, as: :json
     end
 
     # Verify status was updated in database
     image_core.reload
-    assert_equal "done", image_core.status
+    assert_equal "processing", image_core.status
   end
 
   test "status_receiver should skip CSRF token verification" do
     image_core = image_cores(:one)
+    attempt = local_attempt_for(image_core)
 
     # Post without CSRF token (would normally fail)
     assert_nothing_raised do
       post status_receiver_image_cores_url, params: {
         data: {
           image_core_id: image_core.id,
-          status: 2  # processing
+          status: 2,  # processing
+          attempt_id: attempt.id,
+          callback_token: attempt.callback_token
         }
       }, as: :json
     end
@@ -585,12 +744,7 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   # PHASE 4: status_receiver error cases
 
-  test "status_receiver should handle missing image_core_id" do
-    # Current behavior: params[:data][:image_core_id] is nil
-    # .to_i on nil returns 0, then find(0) raises RecordNotFound
-    # Rails rescues and returns 404 Not Found
-    # Future improvement: Add parameter validation and return 400 Bad Request
-
+  test "status_receiver should reject missing image_core_id" do
     post status_receiver_image_cores_url, params: {
       data: {
         status: 2
@@ -598,16 +752,11 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       }
     }, as: :json
 
-    # Rails catches RecordNotFound and returns 404
-    assert_response :not_found
+    assert_response :unauthorized
   end
 
-  test "status_receiver should handle invalid image_core_id" do
+  test "status_receiver should reject invalid image_core_id" do
     invalid_id = 999999
-
-    # Current behavior: find(999999) raises RecordNotFound
-    # Rails rescues and returns 404 Not Found
-    # This is actually correct behavior
 
     post status_receiver_image_cores_url, params: {
       data: {
@@ -616,7 +765,82 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
       }
     }, as: :json
 
-    # Rails catches RecordNotFound and returns 404
-    assert_response :not_found
+    assert_response :unauthorized
   end
+
+  test "description_receiver rejects missing callback token without mutating image" do
+    image_core = image_cores(:one)
+    original_description = image_core.description
+    local_attempt_for(image_core)
+
+    post description_receiver_image_cores_url, params: {
+      data: {
+        image_core_id: image_core.id,
+        description: "unauthenticated description"
+      }
+    }, as: :json
+
+    assert_response :unauthorized
+    assert_equal original_description, image_core.reload.description
+  end
+
+  test "description_receiver ignores canceled attempt callback" do
+    image_core = image_cores(:one)
+    original_description = image_core.description
+    attempt = local_attempt_for(image_core)
+    token = attempt.callback_token
+    attempt.cancel!
+
+    post description_receiver_image_cores_url, params: {
+      data: {
+        image_core_id: image_core.id,
+        description: "stale local description",
+        attempt_id: attempt.id,
+        callback_token: token
+      }
+    }, as: :json
+
+    assert_response :success
+    assert_equal original_description, image_core.reload.description
+  end
+
+  test "status_receiver rejects callback token for another image" do
+    image_core = image_cores(:one)
+    other_image = image_cores(:two)
+    attempt = local_attempt_for(image_core)
+
+    post status_receiver_image_cores_url, params: {
+      data: {
+        image_core_id: other_image.id,
+        status: 2,
+        attempt_id: attempt.id,
+        callback_token: attempt.callback_token
+      }
+    }, as: :json
+
+    assert_response :unauthorized
+    assert_equal "in_queue", image_core.reload.status
+    assert_not_equal "processing", other_image.reload.status
+  end
+
+  private
+
+    def local_attempt_for(image_core)
+      image_core.image_description_generation_attempts.active.each(&:cancel!)
+      attempt = image_core.start_description_generation_attempt!(provider: "local")
+      image_core.update!(status: :in_queue)
+      attempt
+    end
+
+    def with_env(values)
+      old_values = values.keys.to_h { |key| [ key, ENV[key] ] }
+      values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+      yield
+    ensure
+      old_values.each do |key, value|
+        value.nil? ? ENV.delete(key) : ENV[key] = value
+      end
+    end
 end

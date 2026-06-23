@@ -1,22 +1,61 @@
 services:
+  meme_search_uploads_setup:
+    image: alpine:3.20
+    command: >
+      sh -c "mkdir -p /direct-uploads &&
+      chown -R 1000:1000 /direct-uploads &&
+      chmod -R u+rwX /direct-uploads"
+    volumes:
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/direct-uploads
+
   meme_search:
     build:
       context: .
       dockerfile: ./meme_search/meme_search_app/Dockerfile
     container_name: meme_search
     environment:
-      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:${DB_PORT:-5432}/meme_search"
+      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:5432/meme_search"
+      IMAGE_DESCRIPTION_PROVIDER: "${IMAGE_DESCRIPTION_PROVIDER:-local}"
+      OPENAI_API_BASE_URL: "${OPENAI_API_BASE_URL:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_VISION_MODEL: "${OPENAI_VISION_MODEL:-}"
     ports:
       - "${APP_PORT:-3000}:3000" # <--  adjust to desired local port for this service in your .env file
     depends_on:
+      meme_search_uploads_setup:
+        condition: service_completed_successfully
       meme_search_db:
         condition: service_healthy
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /rails/public/memes directory in the container (see example below)
       - ./meme_search/memes/:/rails/public/memes # <-- example meme directory from the repository
-      - ./meme_search/direct-uploads/:/rails/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/rails/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
       # -  /route/to/my/personal/additional_memes/:/rails/public/memes/additional_memes # <-- personal meme collection - must be placed inside /rails/public/memes in the container
 
+  meme_search_jobs:
+    build:
+      context: .
+      dockerfile: ./meme_search/meme_search_app/Dockerfile
+    container_name: meme_search_jobs
+    command: ./bin/jobs
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@meme-search-db:5432/meme_search"
+      IMAGE_DESCRIPTION_PROVIDER: "${IMAGE_DESCRIPTION_PROVIDER:-local}"
+      OPENAI_API_BASE_URL: "${OPENAI_API_BASE_URL:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_VISION_MODEL: "${OPENAI_VISION_MODEL:-}"
+    depends_on:
+      meme_search_uploads_setup:
+        condition: service_completed_successfully
+      meme_search_db:
+        condition: service_healthy
+    volumes:
+      - ./meme_search/memes/:/rails/public/memes
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/rails/public/memes/direct-uploads
+
   image_to_text_generator:
+    # Required only when IMAGE_DESCRIPTION_PROVIDER=local, which is the default.
+    # For external OpenAI-compatible vision APIs, run Rails, Solid Queue, and Postgres:
+    # docker compose -f docker-compose-local-build.yml up --build meme_search meme_search_jobs meme_search_db
     build:
       context: ./meme_search/image_to_text_generator
       dockerfile: Dockerfile
@@ -24,14 +63,17 @@ services:
     environment: # <-- you can adjust these values in your .env file
       APP_PORT: "${APP_PORT:-3000}"
       GEN_URL: "http://meme_search:3000"
+    depends_on:
+      meme_search_uploads_setup:
+        condition: service_completed_successfully
     expose:
       - "8000" 
     volumes: # <-- any additional meme directory must be mounted here - and placed in the /app/public/memes directory in the container (see example below)
       - ./meme_search/memes/:/app/public/memes # <-- example meme directory from the repository
-      - ./meme_search/direct-uploads/:/app/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
+      - ${MEME_SEARCH_DIRECT_UPLOADS_PATH:-./meme_search/direct-uploads}:/app/public/memes/direct-uploads # <-- REQUIRED: directory for drag-and-drop uploads
       # -  /route/to/my/personal/additional_memes/:/app/public/memes/additional_memes # <-- personal meme collection - must be placed inside /app/public/memes in the container
-      - ./meme_search/db_data/image_to_text_generator:/app/db
-      - ./meme_search/models:/root/.cache/huggingface
+      - ${MEME_SEARCH_GENERATOR_DB_PATH:-./meme_search/db_data/image_to_text_generator}:/app/db
+      - ${MEME_SEARCH_MODELS_PATH:-./meme_search/models}:/root/.cache/huggingface
     deploy:
       resources:
         limits: # <-- roughly tested min memory for cpu usage
@@ -46,7 +88,7 @@ services:
     image: pgvector/pgvector:pg17
     container_name: meme-search-db # note: must use - and not _ as ActiveRecord uses URI::RFC2396_Parser to parse database URLs
     volumes:
-      - ./meme_search/db_data/meme-search-db:/var/lib/postgresql/data
+      - ${MEME_SEARCH_DB_PATH:-./meme_search/db_data/meme-search-db}:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: meme_search
       POSTGRES_USER: postgres

@@ -53,27 +53,22 @@ module BulkGenerationTestHelpers
     WebMock.reset!
   end
 
-  # Verify session has correct structure and data types
-  def assert_session_structure(session_data)
-    assert_not_nil session_data, "Session data should exist"
-    assert_instance_of Hash, session_data
-
-    # In tests, controller sets symbol keys which remain as symbols in test session
-    # In production, ActionDispatch::Session converts to strings
-    # Use flexible access for both
-    total_count = session_data[:total_count] || session_data["total_count"]
-    started_at = session_data[:started_at] || session_data["started_at"]
-    image_ids = session_data[:image_ids] || session_data["image_ids"]
-    filter_params = session_data[:filter_params] || session_data["filter_params"]
-
-    # Check data types
-    assert_instance_of Integer, total_count
-    assert_instance_of Integer, started_at
-    assert_instance_of Array, image_ids
-    assert_instance_of Hash, filter_params
+  def current_bulk_operation
+    ImageDescriptionBulkOperation.current
   end
 
-  # Verify image status is in_queue
+  def operation_image_ids(operation)
+    operation.image_cores.pluck(:id)
+  end
+
+  def assert_bulk_operation_structure(operation)
+    assert_not_nil operation, "Bulk operation should exist"
+    assert_instance_of ImageDescriptionBulkOperation, operation
+    assert_instance_of Integer, operation.total_count
+    assert_instance_of ActiveSupport::TimeWithZone, operation.started_at
+    assert_instance_of Hash, operation.filter_params
+  end
+
   def assert_image_queued(image_core)
     image_core.reload
     assert_equal "in_queue", image_core.status, "Image should be in_queue"
@@ -83,23 +78,6 @@ module BulkGenerationTestHelpers
   def assert_image_done(image_core)
     image_core.reload
     assert_equal "done", image_core.status, "Image should be done"
-  end
-
-  # Build session data structure for passing to GET/POST requests
-  # Use this to create session data that you pass to requests via session: parameter
-  def build_bulk_session_data(image_ids:, total_count: nil, filter_params: {})
-    {
-      bulk_operation: {
-        total_count: total_count || image_ids.length,
-        started_at: Time.current.to_i,
-        image_ids: image_ids,
-        filter_params: {
-          selected_tag_names: filter_params[:selected_tag_names] || "",
-          selected_path_names: filter_params[:selected_path_names] || "",
-          has_embeddings: filter_params[:has_embeddings] || ""
-        }
-      }
-    }
   end
 
   # Get status counts from response JSON

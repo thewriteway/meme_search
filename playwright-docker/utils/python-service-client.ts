@@ -8,17 +8,15 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
 export interface AddJobRequest {
-  image_id: string;
+  image_core_id: number;
   image_path: string;
-  model_id: string;
-  webhook_url_description?: string;
-  webhook_url_status?: string;
+  model: string;
+  attempt_id: number;
+  callback_token: string;
 }
 
 export interface AddJobResponse {
-  message: string;
-  job_id: number;
-  image_id: number;
+  status: string;
 }
 
 export interface QueueStatusResponse {
@@ -28,10 +26,11 @@ export interface QueueStatusResponse {
 
 export interface JobInfo {
   id: number;
-  image_id: number;
+  image_core_id: number;
   image_path: string;
-  model_id: string;
-  status: string;
+  model: string;
+  attempt_id: number;
+  callback_token: string;
   created_at: string;
   updated_at: string;
 }

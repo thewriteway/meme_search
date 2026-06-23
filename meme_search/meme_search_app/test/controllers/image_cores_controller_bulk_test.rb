@@ -13,6 +13,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     ImageEmbedding.delete_all  # Child first
     ImageTag.delete_all  # Child first
     ImageCore.delete_all  # Parent after children
+    ImageDescriptionBulkOperation.delete_all
     # Keep fixture data, delete only test-created data
     TagName.where("name LIKE 'tag_%' OR name LIKE 'special%' OR name LIKE 'bulk_%'").delete_all
     ImagePath.where("name LIKE 'test_%' OR name LIKE 'special%'").delete_all
@@ -51,17 +52,15 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     # Assert redirects
     assert_redirected_to image_cores_path
 
-    # Assert session structure
-    session_data = session[:bulk_operation]
-    assert_session_structure(session_data)
+    operation = current_bulk_operation
+    assert_bulk_operation_structure(operation)
 
-    # Assert session counts (use symbol keys as controller sets them)
-    assert_equal 3, session_data[:total_count]
-    assert_equal 3, session_data[:image_ids].length
+    assert_equal 3, operation.total_count
+    assert_equal 3, operation_image_ids(operation).length
 
     # Assert image_ids match the queued images
     queued_ids = images_without_desc.map(&:id)
-    assert_equal queued_ids.sort, session_data[:image_ids].sort
+    assert_equal queued_ids.sort, operation_image_ids(operation).sort
 
     # Assert only 3 images were queued
     images_without_desc.each do |img|
@@ -75,25 +74,19 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # Test 1.2: Session data types (critical for bug prevention!)
-  test "bulk_generate_descriptions should initialize session with correct data types" do
+  # Test 1.2: Durable operation data types (critical for bug prevention!)
+  test "bulk_generate_descriptions should initialize operation with correct data types" do
     setup_bulk_test_images(count: 2, with_descriptions: false)
 
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
 
-    session_data = session[:bulk_operation]
-
-    # Verify it's a Hash
-    assert_instance_of Hash, session_data
-
-    # Access with symbol keys (controller sets them as symbols, Rails may/may not convert in test)
-    # In production, ActionDispatch::Session converts to strings, but in tests we access directly
-    total_count = session_data[:total_count] || session_data["total_count"]
-    started_at = session_data[:started_at] || session_data["started_at"]
-    image_ids = session_data[:image_ids] || session_data["image_ids"]
-    filter_params = session_data[:filter_params] || session_data["filter_params"]
+    operation = current_bulk_operation
+    total_count = operation.total_count
+    started_at = operation.started_at.to_i
+    image_ids = operation_image_ids(operation)
+    filter_params = operation.filter_params
 
     # Verify data types
     assert_instance_of Integer, total_count, "total_count should be Integer not nil!"
@@ -108,7 +101,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
   end
 
   # Test 1.3: Image IDs tracking for progress bar
-  test "bulk_generate_descriptions should store image_ids in session for progress tracking" do
+  test "bulk_generate_descriptions should store image ids in operation attempts for progress tracking" do
     # Create 4 specific images
     images = setup_bulk_test_images(count: 4, with_descriptions: false)
 
@@ -116,14 +109,14 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       post bulk_generate_descriptions_image_cores_url
     end
 
-    session_data = session[:bulk_operation]
+    operation = current_bulk_operation
 
     # Assert image_ids contains exactly 4 IDs
-    assert_equal 4, session_data[:image_ids].length
+    assert_equal 4, operation_image_ids(operation).length
 
     # Assert IDs match the created test images
     expected_ids = images.map(&:id).sort
-    actual_ids = session_data[:image_ids].sort
+    actual_ids = operation_image_ids(operation).sort
     assert_equal expected_ids, actual_ids
 
     # This test validates the fix for the progress bar bug!
@@ -141,10 +134,9 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     # Should still redirect
     assert_redirected_to image_cores_path
 
-    # Should initialize session with 0 count
-    session_data = session[:bulk_operation]
-    assert_equal 0, session_data[:total_count]
-    assert_equal [], session_data[:image_ids]
+    operation = current_bulk_operation
+    assert_equal 0, operation.total_count
+    assert_equal [], operation_image_ids(operation)
   end
 
   # Test 1.5: Nil vs empty string descriptions
@@ -169,8 +161,8 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     end
 
     # Should queue all 4 images (both nil and "" count as "no description")
-    session_data = session[:bulk_operation]
-    assert_equal 4, session_data[:total_count]
+    operation = current_bulk_operation
+    assert_equal 4, operation.total_count
 
     # All 4 should be queued
     (images_nil + images_empty).each do |img|
@@ -193,9 +185,9 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     end
 
     # Should be queued (status=0 takes precedence per OR logic)
-    session_data = session[:bulk_operation]
-    assert_equal 1, session_data[:total_count]
-    assert_includes session_data[:image_ids], img.id
+    operation = current_bulk_operation
+    assert_equal 1, operation.total_count
+    assert_includes operation_image_ids(operation), img.id
     assert_image_queued(img)
   end
 
@@ -219,18 +211,18 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       post bulk_generate_descriptions_image_cores_url, params: { selected_tag_names: "tag_1" }
     end
 
-    session_data = session[:bulk_operation]
+    operation = current_bulk_operation
 
     # Should only queue 3 images with tag_1
-    assert_equal 3, session_data[:total_count]
-    assert_equal 3, session_data[:image_ids].length
+    assert_equal 3, operation.total_count
+    assert_equal 3, operation_image_ids(operation).length
 
     # Verify correct images queued
     tag_1_ids = images_tag_1.map(&:id).sort
-    assert_equal tag_1_ids, session_data[:image_ids].sort
+    assert_equal tag_1_ids, operation_image_ids(operation).sort
 
-    # Verify filter params stored (use symbol keys throughout)
-    assert_equal "tag_1", session_data[:filter_params][:selected_tag_names]
+    # Verify filter params stored
+    assert_equal "tag_1", operation.filter_params["selected_tag_names"]
   end
 
   # Test 2.2: Path filter
@@ -248,13 +240,13 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       post bulk_generate_descriptions_image_cores_url, params: { selected_path_names: @image_path.name }
     end
 
-    session_data = session[:bulk_operation]
+    operation = current_bulk_operation
 
     # Should only queue 2 images from path_1
-    assert_equal 2, session_data[:total_count]
+    assert_equal 2, operation.total_count
 
     path_1_ids = images_path_1.map(&:id).sort
-    assert_equal path_1_ids, session_data[:image_ids].sort
+    assert_equal path_1_ids, operation_image_ids(operation).sort
   end
 
   # Test 2.3: has_embeddings filter (value "0" = no embeddings)
@@ -276,13 +268,13 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       post bulk_generate_descriptions_image_cores_url, params: { has_embeddings: "0" }
     end
 
-    session_data = session[:bulk_operation]
+    operation = current_bulk_operation
 
     # Should only queue 3 images without embeddings
-    assert_equal 3, session_data[:total_count]
+    assert_equal 3, operation.total_count
 
     no_emb_ids = images_no_emb.map(&:id).sort
-    assert_equal no_emb_ids, session_data[:image_ids].sort
+    assert_equal no_emb_ids, operation_image_ids(operation).sort
   end
 
   # Test 2.4: Empty string has_embeddings should not filter (bug fix validation!)
@@ -300,10 +292,10 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       post bulk_generate_descriptions_image_cores_url, params: { has_embeddings: "" }
     end
 
-    session_data = session[:bulk_operation]
+    operation = current_bulk_operation
 
     # Should queue all 5 images (no filter applied for empty string)
-    assert_equal 5, session_data[:total_count]
+    assert_equal 5, operation.total_count
 
     # This validates the bug fix from lines 432-447!
   end
@@ -346,29 +338,29 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       }
     end
 
-    session_data = session[:bulk_operation]
+    operation = current_bulk_operation
 
     # Should only queue the one image matching ALL criteria
-    assert_equal 1, session_data[:total_count]
-    assert_equal [ match_img.id ], session_data[:image_ids]
+    assert_equal 1, operation.total_count
+    assert_equal [ match_img.id ], operation_image_ids(operation)
   end
 
   # =============================================================================
   # PHASE 3: bulk_operation_status Tests
   # =============================================================================
 
-  # Test 3.1: Return status when session exists
-  test "bulk_operation_status should return status when session exists" do
+  # Test 3.1: Return status when operation exists
+  test "bulk_operation_status should return status when operation exists" do
     # Create images WITHOUT descriptions so they'll be queued
     images = setup_bulk_test_images(count: 3, with_descriptions: false)
 
-    # POST to bulk_generate_descriptions to create session
+    # POST to bulk_generate_descriptions to create durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
     assert_redirected_to image_cores_path
 
-    # Now GET status - session should exist from the POST
+    # Now GET status - operation should exist from the POST
     get bulk_operation_status_image_cores_url, as: :json
 
     assert_response :success
@@ -380,18 +372,18 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     assert_not_nil data["started_at"]
   end
 
-  # Test 3.2: Access session with string keys (bug fix validation!)
-  test "bulk_operation_status should access session with string keys not symbol keys" do
+  # Test 3.2: Started-at and total values are durable
+  test "bulk_operation_status should return durable total and started_at values" do
     # Create images WITHOUT descriptions so they'll be queued
     images = setup_bulk_test_images(count: 2, with_descriptions: false)
 
-    # POST to bulk_generate_descriptions to create session with string keys
+    # POST to bulk_generate_descriptions to create durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
     assert_redirected_to image_cores_path
 
-    # Then make the actual request - tests that controller accesses string keys
+    # Then make the actual request
     get bulk_operation_status_image_cores_url, as: :json
 
     assert_response :success
@@ -406,8 +398,8 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     assert_not_nil data["started_at"], "started_at must not be nil - bug fix validation"
   end
 
-  # Test 3.3: Return error when no session exists
-  test "bulk_operation_status should return error when no session exists" do
+  # Test 3.3: Return error when no active operation exists
+  test "bulk_operation_status should return error when no active operation exists" do
     get bulk_operation_status_image_cores_url, as: :json
 
     assert_response :not_found
@@ -416,25 +408,25 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     assert_includes data["error"], "No bulk operation"
   end
 
-  # Test 3.4: Count only images in image_ids array (progress bar fix!)
-  test "bulk_operation_status should count only images in image_ids array" do
+  # Test 3.4: Count only images attached to the operation
+  test "bulk_operation_status should count only images attached to the operation" do
     # Create images WITHOUT descriptions (will be queued)
-    session_images = setup_bulk_test_images(count: 3, with_descriptions: false)
+    operation_images = setup_bulk_test_images(count: 3, with_descriptions: false)
 
-    # Create image NOT in session (should NOT be counted)
+    # Create image NOT in operation (should NOT be counted)
     # This image gets created and won't be queued in bulk operation
     outside_img = setup_bulk_test_images(count: 1, with_descriptions: true, status: 3).first
 
-    # POST to bulk_generate_descriptions - this queues session_images
+    # POST to bulk_generate_descriptions - this queues operation_images
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
     assert_redirected_to image_cores_path
 
-    # Now update the session images to different statuses
-    session_images[0].update!(status: 3) # done
-    session_images[1].update!(status: 2) # processing
-    session_images[2].update!(status: 1) # in_queue
+    # Now update the operation images to different statuses
+    operation_images[0].update!(status: 3) # done
+    operation_images[1].update!(status: 2) # processing
+    operation_images[2].update!(status: 1) # in_queue
 
     # Get status
     get bulk_operation_status_image_cores_url, as: :json
@@ -444,7 +436,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     data = parse_status_response(response)
     status_counts = data["status_counts"]
 
-    # Should count only the 3 images in session, NOT the outside image!
+    # Should count only the 3 images in operation, NOT the outside image!
     assert_equal 1, status_counts["done"], "Only image 1, NOT the outside image!"
     assert_equal 1, status_counts["processing"]
     assert_equal 1, status_counts["in_queue"]
@@ -458,7 +450,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     # Create images WITHOUT descriptions (will be queued)
     images = setup_bulk_test_images(count: 3, with_descriptions: false)
 
-    # POST to bulk_generate_descriptions - this queues images and creates session
+    # POST to bulk_generate_descriptions - this queues images and creates durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
@@ -481,7 +473,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     # Create images WITHOUT descriptions (will be queued)
     images = setup_bulk_test_images(count: 4, with_descriptions: false)
 
-    # POST to bulk_generate_descriptions - this queues images and creates session
+    # POST to bulk_generate_descriptions - this queues images and creates durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
@@ -500,12 +492,12 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     assert_equal false, data["is_complete"], "Should not be complete with active images"
   end
 
-  # Test 3.7: Clear session when complete
-  test "bulk_operation_status should clear session when operation complete" do
+  # Test 3.7: Complete operation when all work is finished
+  test "bulk_operation_status should mark operation complete when operation complete" do
     # Create images without descriptions
     images = setup_bulk_test_images(count: 2, with_descriptions: false)
 
-    # POST to create session
+    # POST to create durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
@@ -513,22 +505,24 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     # Mark all images as done
     images.each { |img| img.update!(status: "done") }
 
-    # GET status - should clear session since all done
+    operation = current_bulk_operation
+
+    # GET status - should complete operation since all done
     get bulk_operation_status_image_cores_url, as: :json
 
     data = parse_status_response(response)
     assert_equal true, data["is_complete"]
 
-    # Session should be cleared
-    assert_nil session[:bulk_operation], "Session should be cleared when complete"
+    assert_equal "completed", operation.reload.status
+    assert_nil ImageDescriptionBulkOperation.current
   end
 
-  # Test 3.8: Don't clear session when incomplete
-  test "bulk_operation_status should not clear session when incomplete" do
+  # Test 3.8: Keep operation active when incomplete
+  test "bulk_operation_status should keep operation active when incomplete" do
     # Create images WITHOUT descriptions (will be queued)
     images = setup_bulk_test_images(count: 2, with_descriptions: false)
 
-    # POST to bulk_generate_descriptions - this queues images and creates session
+    # POST to bulk_generate_descriptions - this queues images and creates durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
@@ -544,8 +538,7 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     data = parse_status_response(response)
     assert_equal false, data["is_complete"]
 
-    # Session should still exist
-    assert_not_nil session[:bulk_operation], "Session should persist when incomplete"
+    assert_equal "active", current_bulk_operation.status
   end
 
   # =============================================================================
@@ -553,18 +546,18 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
   # =============================================================================
 
   # Test 4.1: Cancel pending jobs
-  test "bulk_operation_cancel should cancel jobs and clear session" do
+  test "bulk_operation_cancel should cancel jobs and mark operation canceled" do
     # Create images WITHOUT descriptions (will be queued)
     images = setup_bulk_test_images(count: 3, with_descriptions: false)
 
-    # POST to bulk_generate_descriptions - this queues images and creates session
+    # POST to bulk_generate_descriptions - this queues images and creates durable operation
     mock_python_service_success do
       post bulk_generate_descriptions_image_cores_url
     end
     assert_redirected_to image_cores_path
 
-    # Verify session exists before cancel
-    assert_not_nil session[:bulk_operation], "Session should exist after bulk_generate"
+    operation = current_bulk_operation
+    assert_equal "active", operation.status
 
     # Cancel the operation
     mock_python_service_success do
@@ -576,17 +569,52 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     data = parse_status_response(response)
     assert_equal 3, data["cancelled_count"]
 
-    # Session should be cleared
-    assert_nil session[:bulk_operation], "Session should be cleared after cancel"
+    assert_equal "canceled", operation.reload.status
+    assert_nil ImageDescriptionBulkOperation.current
   end
 
-  # Test 4.2: Handle no active session
-  test "bulk_operation_cancel should handle no active session gracefully" do
-    # No session data
+  test "bulk_operation_cancel should cancel openai jobs locally" do
+    images = setup_bulk_test_images(count: 2, with_descriptions: false)
 
+    bulk_provider = Minitest::Mock.new
+    bulk_provider.expect(:queued_provider?, false)
+    bulk_provider.expect(:queued_provider?, false)
+    bulk_provider.expect(:queued_provider?, false)
+
+    ImageDescriptionProviders::Factory.stub(:build, bulk_provider) do
+      post bulk_generate_descriptions_image_cores_url
+    end
+
+    assert_redirected_to image_cores_path
+    bulk_provider.verify
+    operation = current_bulk_operation
+    unrelated_image = setup_bulk_test_images(count: 1, with_descriptions: false).first
+    unrelated_image.update!(status: :in_queue)
+
+    cancel_provider = Object.new
+    cancel_provider.define_singleton_method(:queued_provider?) do
+      flunk "cancel should use the provider mode captured in the durable bulk operation"
+    end
+
+    ImageDescriptionProviders::Factory.stub(:build, cancel_provider) do
+      post bulk_operation_cancel_image_cores_url, as: :json
+    end
+
+    assert_response :success
+    data = parse_status_response(response)
+    assert_equal 2, data["cancelled_count"]
+    images.each do |image|
+      assert_equal "not_started", image.reload.status
+    end
+    assert_equal "in_queue", unrelated_image.reload.status
+    assert_equal "canceled", operation.reload.status
+    assert_nil current_bulk_operation
+  end
+
+  # Test 4.2: Handle no active operation
+  test "bulk_operation_cancel should handle no active operation gracefully" do
     post bulk_operation_cancel_image_cores_url, as: :json
 
-    # Controller returns 404 when no session exists - this is correct behavior
     assert_response :not_found
 
     data = parse_status_response(response)
@@ -616,11 +644,14 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
     # Step 3: Manually complete images
     images.each { |img| img.update!(status: 3, description: "Done") }
 
-    # Step 4: Poll again (should show complete and clear session)
+    operation = current_bulk_operation
+
+    # Step 4: Poll again (should show complete and mark operation complete)
     get bulk_operation_status_image_cores_url, as: :json
     data = parse_status_response(response)
     assert_equal true, data["is_complete"]
-    assert_nil session[:bulk_operation], "Session cleared after completion"
+    assert_equal "completed", operation.reload.status
+    assert_nil current_bulk_operation
   end
 
   # Test 5.2: Full workflow - generate, poll, cancel
@@ -642,8 +673,8 @@ class ImageCoresControllerBulkTest < ActionDispatch::IntegrationTest
       post bulk_operation_cancel_image_cores_url, as: :json
     end
 
-    # Step 4: Verify session cleared
+    # Step 4: Verify operation is no longer active
     get bulk_operation_status_image_cores_url, as: :json
-    assert_response :not_found # No session exists
+    assert_response :not_found
   end
 end
