@@ -39,6 +39,20 @@ class ImageDescriptionGenerationAttemptTest < ActiveSupport::TestCase
     assert_equal "done", image_core.status
   end
 
+  test "successful attempt normalizes descriptions to the model limit" do
+    image_core = image_cores(:one)
+    attempt = image_core.start_description_generation_attempt!(provider: "local")
+    image_core.update!(status: :in_queue)
+    long_description = ([ "Florence generated a detailed caption" ] * 30).join(" ")
+
+    assert attempt.succeed_with_description!(long_description)
+
+    saved_description = image_core.reload.description
+    assert_operator saved_description.length, :<=, ImageCore::DESCRIPTION_MAX_LENGTH
+    assert_equal saved_description, ImageCore.normalize_description(long_description)
+    assert_equal "done", image_core.status
+  end
+
   test "cancel active attempt resets queued image to not started" do
     image_core = image_cores(:one)
     image_core.start_description_generation_attempt!(provider: "openai")

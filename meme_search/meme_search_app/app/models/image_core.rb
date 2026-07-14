@@ -4,6 +4,8 @@ require "uri"
 
 
 class ImageCore < ApplicationRecord
+  DESCRIPTION_MAX_LENGTH = 500
+
   # keyword search scope
   include PgSearch::Model
   pg_search_scope :search_any_word,
@@ -36,7 +38,7 @@ class ImageCore < ApplicationRecord
 
   # validations
   validates_length_of :name, presence: true, minimum: 0, maximum: 100, allow_blank: false
-  validates_length_of :description, minimum: 0, maximum: 500, allow_blank: true
+  validates_length_of :description, minimum: 0, maximum: DESCRIPTION_MAX_LENGTH, allow_blank: true
   enum :status, [
     :not_started,
     :in_queue,
@@ -80,6 +82,10 @@ class ImageCore < ApplicationRecord
     return false unless attempt
 
     attempt.cancel!
+  end
+
+  def self.normalize_description(description)
+    description.to_s.squish.truncate(DESCRIPTION_MAX_LENGTH, separator: /\s/, omission: "")
   end
 
   def remove_image_text_job

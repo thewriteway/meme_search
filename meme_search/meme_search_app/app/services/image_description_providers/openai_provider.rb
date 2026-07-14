@@ -13,10 +13,6 @@ module ImageDescriptionProviders
     TEST_IMAGE_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAA+UlEQVR42u3aQQ7CIBCF4XcJz9K1R/DeXqdp0pUujYl0GBh5DC9hyeL/YqOVAftxTr0ggAACCCAANeB83mYCvHMtiw5g7I6QYFR6LwbGprczQFLvNoCn3mcAVb3DALb6WgMI66sM4Ky3G0BbbzQsABhYbzF0A2z3R1WWfX8TwJjyubrvLxuWB3zVXDbV7m8C2J/m6E+gYBAg/lvoT4BRvwYC0AKo6gsGPUICCCDAr1c0y4oFlA3uaAcm5HXal0IKcD/Z4YCF/tTzAnSwRQCY/mw0w+l0hvlAhglNhhlZhillhjlxhkl9krsSSW6r5LkvpCtnAgggwGqAFzX/iQwCblWQAAAAAElFTkSuQmCC"
     TEST_PROMPT = "Reply with ok if you can inspect this image."
     UNSUPPORTED_TEST_RESPONSE_MESSAGE = "OpenAI connection test returned an unsupported response."
-    MAX_DESCRIPTION_LENGTH = ImageCore.validators_on(:description)
-      .grep(ActiveModel::Validations::LengthValidator)
-      .filter_map { |validator| validator.options[:maximum] }
-      .min || 500
     MAX_COMPLETION_TOKENS = 160
 
     def initialize(configuration = Configuration.current)
@@ -92,7 +88,7 @@ module ImageDescriptionProviders
         return fail_image(image_core, attempt, "OpenAI API key is required. Add one in Settings or set OPENAI_API_KEY.")
       end
 
-      description = normalize_description(request_description(image_core))
+      description = ImageCore.normalize_description(request_description(image_core))
       if description.blank?
         return fail_image(image_core, attempt, "OpenAI vision API returned an unsupported response.")
       end
@@ -146,10 +142,6 @@ module ImageDescriptionProviders
             }
           ]
         }
-      end
-
-      def normalize_description(description)
-        description.to_s.squish.truncate(MAX_DESCRIPTION_LENGTH, omission: "")
       end
 
       def data_uri(image_core)

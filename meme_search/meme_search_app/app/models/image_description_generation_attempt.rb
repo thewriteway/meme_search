@@ -69,7 +69,7 @@ class ImageDescriptionGenerationAttempt < ApplicationRecord
 
   def succeed_with_description!(description)
     guarded_update do |attempt, image|
-      image.update!(description: description, status: :done)
+      image.update!(description: ImageCore.normalize_description(description), status: :done)
       attempt.update!(status: :succeeded, completed_at: Time.current)
     end
   end

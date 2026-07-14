@@ -43,13 +43,13 @@ class ImageCoresController < ApplicationController
     attempt = verified_callback_attempt
     return head :unauthorized unless attempt
 
-    description = callback_data[:description]
+    description = ImageCore.normalize_description(callback_data[:description])
 
     if attempt.succeed_with_description!(description)
       image_core = attempt.image_core.reload
       div_id = "description-image-core-id-#{image_core.id}"
       # update view with newly generated description
-      ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: description }
+      ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: image_core.description }
 
       # re-compute embeddings
       image_core.refresh_description_embeddings
