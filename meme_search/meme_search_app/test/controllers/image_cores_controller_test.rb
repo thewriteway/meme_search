@@ -568,6 +568,25 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     assert_not_equal original_description, image_core.description
   end
 
+  test "description_receiver truncates long local descriptions before persistence" do
+    image_core = image_cores(:one)
+    attempt = local_attempt_for(image_core)
+    long_description = ([ "A detailed Florence caption with visible meme text" ] * 30).join(" ")
+
+    post description_receiver_image_cores_url, params: {
+      data: {
+        image_core_id: image_core.id,
+        description: long_description,
+        attempt_id: attempt.id,
+        callback_token: attempt.callback_token
+      }
+    }, as: :json
+
+    assert_response :success
+    assert_equal ImageCore.normalize_description(long_description), image_core.reload.description
+    assert_operator image_core.description.length, :<=, ImageCore::DESCRIPTION_MAX_LENGTH
+  end
+
   test "description_receiver should broadcast to image_description_channel" do
     image_core = image_cores(:one)
     description = "AI generated description"
