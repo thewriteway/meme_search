@@ -136,12 +136,13 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
 
   # Destroy action tests
   test "should destroy image_core" do
-    image_core = ImageCore.create!(
-      name: "to_delete.jpg",
-      description: "test",
-      status: :not_started,
-      image_path: @image_path
-    )
+    test_directory = Rails.root.join("public", "memes", "controller-delete-test")
+    FileUtils.mkdir_p(test_directory)
+    file_path = test_directory.join("to_delete.jpg")
+    File.binwrite(file_path, "test image contents")
+    image_path = ImagePath.create!(name: "controller-delete-test")
+    image_core = image_path.image_cores.find_by!(name: "to_delete.jpg")
+    image_core.update!(description: "test", status: :not_started)
 
     # Mock HTTP DELETE request to image-to-text service using Webmock
     stub_request(:delete, /\/remove_job\/#{image_core.id}/)
@@ -152,6 +153,30 @@ class ImageCoresControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to image_cores_url
+    assert_not file_path.exist?
+    assert_equal "Meme successfully deleted from the library and disk.", flash[:notice]
+  ensure
+    FileUtils.rm_rf(test_directory) if test_directory
+  end
+
+  test "destroy keeps the database record when the source file cannot be deleted" do
+    image_core = ImageCore.create!(
+      name: "protected.jpg",
+      description: "test",
+      status: :not_started,
+      image_path: @image_path
+    )
+
+    image_core.stub(:delete_source_file!, -> { raise ImageCore::FileDeletionError, "The meme file could not be deleted." }) do
+      ImageCore.stub(:find, image_core) do
+        assert_no_difference("ImageCore.count") do
+          delete image_core_url(image_core)
+        end
+      end
+    end
+
+    assert_redirected_to image_core_url(image_core)
+    assert_equal "The meme file could not be deleted.", flash[:alert]
   end
 
   # Search action tests

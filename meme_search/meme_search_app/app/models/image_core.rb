@@ -6,6 +6,8 @@ require "uri"
 class ImageCore < ApplicationRecord
   DESCRIPTION_MAX_LENGTH = 500
 
+  class FileDeletionError < StandardError; end
+
   # keyword search scope
   include PgSearch::Model
   pg_search_scope :search_any_word,
@@ -86,6 +88,33 @@ class ImageCore < ApplicationRecord
 
   def self.normalize_description(description)
     description.to_s.squish.truncate(DESCRIPTION_MAX_LENGTH, separator: /\s/, omission: "")
+  end
+
+  def source_file_path
+    memes_root = Rails.root.join("public", "memes").cleanpath
+    relative_path = Pathname.new(File.join(image_path.name.to_s, name.to_s)).cleanpath
+
+    if relative_path.absolute? || relative_path.each_filename.any? { |segment| segment == ".." }
+      raise FileDeletionError, "Refusing to access a file outside the configured meme library."
+    end
+
+    memes_root.join(relative_path).cleanpath
+  end
+
+  def delete_source_file!
+    path = source_file_path
+    return false unless path.exist?
+
+    unless path.file?
+      raise FileDeletionError, "The configured meme path is not a regular file."
+    end
+
+    path.delete
+    true
+  rescue Errno::EACCES, Errno::EPERM, Errno::EROFS => e
+    raise FileDeletionError, "The meme file could not be deleted. Check that the mounted directory is writable. (#{e.message})"
+  rescue SystemCallError => e
+    raise FileDeletionError, "The meme file could not be deleted. (#{e.message})"
   end
 
   def remove_image_text_job
