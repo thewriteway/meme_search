@@ -7,7 +7,7 @@ torchvision>=0.15.0
 transformers==4.49.0
 einops>=0.7.0
 pyvips
-timm>=0.9.0
+timm>=1.0.28
 # flash_attn
 
 # Quantization support for memory-constrained hardware
