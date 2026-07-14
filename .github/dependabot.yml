@@ -1,0 +1,50 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: bundler
+    directory: /meme_search/meme_search_app
+    schedule:
+      interval: monthly
+    groups:
+      ruby-patch-and-minor:
+        update-types:
+          - patch
+          - minor
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      test-patch-and-minor:
+        update-types:
+          - patch
+          - minor
+
+  - package-ecosystem: pip
+    directory: /meme_search/image_to_text_generator
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      python-patch-and-minor:
+        update-types:
+          - patch
+          - minor
+
+  - package-ecosystem: docker
+    directory: /meme_search/meme_search_app
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /meme_search/image_to_text_generator
+    schedule:
+      interval: monthly

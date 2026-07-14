@@ -423,9 +423,9 @@ Meme Search is under active development! See the `CHANGELOG.md` in this repo for
 
 Feature requests and contributions are welcome!
 
-See [the discussion section of this repository](https://github.com/neonwatty/meme_search/discussions) for suggested enhancements to contribute to / weight in on!
+See [the discussion section of this repository](https://github.com/neonwatty/meme-search/discussions) for suggested enhancements to contribute to or weigh in on.
 
-Please see `CONTRIBUTING.md` for some boilerplate ground rules for contributing.
+Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, testing, and contribution guidance. Security-sensitive reports should follow [`SECURITY.md`](SECURITY.md) instead of being filed publicly.
 
 Below is a nice diagram of the repo [generated using gitdiagram](https://github.com/ahmedkhaleel2004/gitdiagram), laying out its main components and interactions.
 

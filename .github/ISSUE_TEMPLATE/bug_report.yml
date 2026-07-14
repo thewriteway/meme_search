@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a reproducible problem in Meme Search
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Search existing issues first and remove secrets, private image data, and personal paths from logs.
+  - type: input
+    id: version
+    attributes:
+      label: Meme Search version
+      description: Find this on the About page or in the image tag you deployed.
+      placeholder: v2.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Docker Compose
+        - Local development
+        - Unraid / Portainer / NAS UI
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Host platform
+      placeholder: Ubuntu 24.04 AMD64, macOS 15 ARM64, Synology DSM, etc.
+    validations:
+      required: true
+  - type: input
+    id: provider
+    attributes:
+      label: Description provider and model
+      placeholder: local / Florence-2-base or OpenAI-compatible / model name
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Explain the behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Start the app with ...
+        2. Open ...
+        3. Click ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste the smallest useful excerpt. Redact API keys, private filenames, image data, and personal paths.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and discussions.
+          required: true
+        - label: I removed secrets and private data from this report.
+          required: true
+        - label: This is not a security vulnerability. I will follow SECURITY.md for security-sensitive reports.
+          required: true
