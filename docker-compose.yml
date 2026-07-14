@@ -18,7 +18,7 @@ services:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OPENAI_VISION_MODEL: "${OPENAI_VISION_MODEL:-}"
     ports:
-      - "${APP_PORT:-3000}:3000" # <--  adjust to desired local port for this service in your .env file
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000" # Set APP_BIND_ADDRESS=0.0.0.0 only for trusted networks.
     depends_on:
       meme_search_uploads_setup:
         condition: service_completed_successfully
