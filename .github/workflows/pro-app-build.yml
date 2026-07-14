@@ -1,6 +1,6 @@
 # Manual-only Docker build workflow for Rails application
 # Automated builds disabled - use workflow_dispatch for manual runs or scripts/build_and_push.sh for local builds
-name: "pro app build"
+name: "Build Rails container"
 on:
   workflow_dispatch:
 
@@ -81,6 +81,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ghcr.io/neonwatty/meme_search:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
