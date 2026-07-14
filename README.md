@@ -325,7 +325,9 @@ This value is automatically detected and loaded into each service via the Compos
 
 ### Building the app locally with Docker
 
-**Docker images are built manually only** - there are no automated CI builds on releases or tags.
+Docker images are built manually before a release because multi-platform model builds are resource intensive. The release workflow verifies both `latest` images carry the exact release commit revision before it creates versioned tags, preventing a Git tag from pointing at images built from different source.
+
+Maintainers should follow the [`RELEASING.md`](RELEASING.md) checklist.
 
 To build the app - including all services defined in the `docker-compose.yml` file - locally run the local compose file at your terminal as
 

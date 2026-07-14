@@ -1,5 +1,6 @@
 # Release workflow - triggers on version tags
-# Creates versioned GHCR image tags from the refreshed latest manifests and publishes a GitHub release.
+# Verifies the refreshed latest images were built from the release commit,
+# creates versioned GHCR tags, and publishes a GitHub release.
 name: "Release"
 
 on:
@@ -47,6 +48,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify latest images were built from this commit
+        run: |
+          EXPECTED_REVISION="$(git rev-parse HEAD)"
+
+          docker pull --platform linux/amd64 ghcr.io/neonwatty/meme_search:latest
+          APP_REVISION="$(docker image inspect ghcr.io/neonwatty/meme_search:latest --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+
+          docker pull --platform linux/amd64 ghcr.io/neonwatty/image_to_text_generator:latest
+          GENERATOR_REVISION="$(docker image inspect ghcr.io/neonwatty/image_to_text_generator:latest --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+
+          if [ "$APP_REVISION" != "$EXPECTED_REVISION" ]; then
+            echo "Rails image revision $APP_REVISION does not match release commit $EXPECTED_REVISION"
+            exit 1
+          fi
+
+          if [ "$GENERATOR_REVISION" != "$EXPECTED_REVISION" ]; then
+            echo "Generator image revision $GENERATOR_REVISION does not match release commit $EXPECTED_REVISION"
+            exit 1
+          fi
+
       - name: Create versioned Docker image tags
         run: |
           docker buildx imagetools create \
@@ -63,26 +84,5 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
-          body: |
-            ## Highlights
-
-            - Added clipboard image paste support on the upload screen, including validation, generated filenames, and end-to-end coverage.
-            - Normalized image inputs before captioning so transparent, palette, and grayscale images are converted consistently for the vision model.
-            - Fixed Docker Compose database URLs when a custom host `DB_PORT` is set.
-            - Hardened Compose persistence paths for uploads, SQLite data, models, and generator-side storage.
-            - Refreshed the multi-arch Docker images for AMD64 and ARM64.
-
-            ## Contributor Thanks
-
-            Thanks to the issue reporters and reviewers who helped pin down the upload, captioning, and Docker Compose edge cases covered by this release.
-
-            ## Docker Images
-
-            Multi-arch images are available for Linux AMD64 and ARM64:
-
-            - `ghcr.io/neonwatty/meme_search:v${{ steps.get_version.outputs.version }}`
-            - `ghcr.io/neonwatty/image_to_text_generator:v${{ steps.get_version.outputs.version }}`
-
-            The `latest` tags have also been refreshed.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
