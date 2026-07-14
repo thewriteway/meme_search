@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { ImageCoresPage } from '../pages/image-cores.page';
 import { resetTestDatabase } from '../utils/db-setup';
+import { addTestImage, fileExists, getMemeFilePath, removeTestImage } from '../utils/filesystem-helpers';
+
+const DELETE_TEST_FILENAME = 'playwright-delete-test.jpg';
 
 /**
  * Image Cores Tests
@@ -14,11 +17,17 @@ test.describe('Image Cores', () => {
 
   // Reset and seed database before each test
   test.beforeEach(async ({ page }) => {
+    await addTestImage('example_memes_1', DELETE_TEST_FILENAME);
+
     // Reset test database with fixture data
     await resetTestDatabase();
 
     // Initialize page object
     imageCoresPage = new ImageCoresPage(page);
+  });
+
+  test.afterEach(async () => {
+    await removeTestImage('example_memes_1', DELETE_TEST_FILENAME);
   });
 
   test('visiting the index - edit description and tags', async ({ page }) => {
@@ -94,18 +103,18 @@ test.describe('Image Cores', () => {
     console.log(`Initial meme count: ${firstMemeCount}`);
 
     // 2. Get first available meme ID and visit its show page
-    const firstMemeId = await imageCoresPage.getFirstMemeId();
+    const firstMemeId = await imageCoresPage.getMemeIdByFilename(DELETE_TEST_FILENAME);
     expect(firstMemeId).not.toBeNull();
-    console.log(`First meme ID: ${firstMemeId}`);
+    console.log(`Delete-test meme ID: ${firstMemeId}`);
 
     await imageCoresPage.gotoShow(firstMemeId!);
     console.log(`Navigated to meme show page: ${page.url()}`);
 
     // 3. Set up dialog handler BEFORE clicking delete
-    // The confirmation dialog asks "Are you sure?"
+    // The confirmation dialog explains that deletion affects the source file.
     page.once('dialog', async (dialog) => {
       console.log(`Dialog appeared: ${dialog.message()}`);
-      expect(dialog.message()).toContain('Are you sure?');
+      expect(dialog.message()).toContain('both the library and disk');
       await dialog.accept();
     });
 
@@ -115,7 +124,7 @@ test.describe('Image Cores', () => {
     console.log(`After delete, redirected to: ${page.url()}`);
 
     // 5. Verify success message appears
-    const hasSuccess = await imageCoresPage.hasSuccessMessage('Meme succesfully deleted!');
+    const hasSuccess = await imageCoresPage.hasSuccessMessage('Meme successfully deleted from the library and disk.');
     if (!hasSuccess) {
       console.log('Success message not visible (may have auto-dismissed)');
     }
@@ -125,5 +134,7 @@ test.describe('Image Cores', () => {
     const secondMemeCount = await imageCoresPage.getMemeCount();
     console.log(`Meme count after delete: ${secondMemeCount}`);
     expect(secondMemeCount).toBe(firstMemeCount - 1);
+
+    expect(fileExists(getMemeFilePath('example_memes_1', DELETE_TEST_FILENAME))).toBe(false);
   });
 });

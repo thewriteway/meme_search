@@ -284,6 +284,8 @@ volumes:
 ...
 ```
 
+Read-only mounts can be indexed and searched, but the Delete action in the web UI cannot remove their source files. The UI reports a clear error and keeps the database record when the mount is not writable.
+
 Now restart the app, and register the `new_memes` via the UX by traversing to the `settings -> paths -> create new` as illustrated below.  Type in `new_memes` in the field provided and press `enter`.
 
 <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-add-new-memes.webp" height="225">

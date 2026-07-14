@@ -60,6 +60,18 @@ export class ImageCoresPage {
   }
 
   /**
+   * Find a meme card by its image filename and return the ImageCore ID.
+   */
+  async getMemeIdByFilename(filename: string): Promise<number | null> {
+    const image = this.page.locator(`img[src*="${filename}"]`).first();
+    const card = image.locator('xpath=ancestor::div[starts-with(@id, "image_core_card_")]').first();
+    const id = await card.getAttribute('id');
+    const match = id?.match(/image_core_card_(\d+)/);
+
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  /**
    * Get count of tags displayed on the show page
    * Note: Glassmorphic UI displays tags as <span> elements with tag_detail_ prefix
    */
