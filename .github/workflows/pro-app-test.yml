@@ -5,6 +5,12 @@ on:
   pull_request:
     branches: ["main", "develop"]
     paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "playwright.config.ts"
+      - "playwright/**"
+      - "playwright-docker/**"
       - "meme_search/meme_search_app/**"
       - ".github/workflows/pro-app-test.yml"
       - "README.md"
@@ -14,6 +20,12 @@ on:
   push:
     branches: ["main", "develop"]
     paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "playwright.config.ts"
+      - "playwright/**"
+      - "playwright-docker/**"
       - "meme_search/meme_search_app/**"
       - ".github/workflows/pro-app-test.yml"
       - "README.md"
@@ -200,6 +212,12 @@ jobs:
 
       - name: Install Node.js dependencies
         run: npm ci
+
+      - name: Audit Node.js dependencies
+        run: npm audit --audit-level=high
+
+      - name: Type-check Playwright tests
+        run: npx tsc --noEmit
 
       - name: Cache Playwright browsers
         id: playwright-cache
