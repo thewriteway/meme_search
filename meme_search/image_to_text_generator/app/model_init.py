@@ -25,6 +25,8 @@ tokenizer = None
 
 def load_rgb_image(image_path):
     image = Image.open(image_path)
+    # Animated images are intentionally indexed from their first frame only.
+    image.seek(0)
     mode = getattr(image, "mode", None)
     image_info = getattr(image, "info", {})
     has_transparency = isinstance(image_info, dict) and image_info.get("transparency") is not None

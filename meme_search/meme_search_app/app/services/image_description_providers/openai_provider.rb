@@ -148,7 +148,23 @@ module ImageDescriptionProviders
         path = Rails.root.join("public", "memes", image_core.image_path.name, image_core.name)
         raise "Image file not found: #{path}" unless File.file?(path)
 
+        return first_gif_frame_data_uri(path) if File.extname(path).casecmp(".gif").zero?
+
         "data:#{mime_type(path)};base64,#{Base64.strict_encode64(File.binread(path))}"
+      end
+
+      def first_gif_frame_data_uri(path)
+        require "image_processing/vips"
+
+        first_frame = ImageProcessing::Vips
+          .source(path.to_s)
+          .loader(page: 0, n: 1)
+          .convert("png")
+          .call
+
+        "data:image/png;base64,#{Base64.strict_encode64(File.binread(first_frame.path))}"
+      ensure
+        first_frame&.close!
       end
 
       def mime_type(path)

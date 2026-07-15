@@ -1,5 +1,6 @@
 require "test_helper"
 require "minitest/mock"
+require_relative "../services/image_description_providers/gif_test_data"
 
 class ImageUploadsControllerTest < ActionDispatch::IntegrationTest
   def setup
@@ -16,7 +17,7 @@ class ImageUploadsControllerTest < ActionDispatch::IntegrationTest
   end
 
   # Helper to create a test image file upload
-  def create_test_image(filename: "test.jpg", content: nil)
+  def create_test_image(filename: "test.jpg", content: nil, mime_type: "image/jpeg")
     # Create a minimal valid JPEG (1x1 pixel) if no content provided
     if content.nil?
       # Base64 decoded 1x1 pixel JPEG
@@ -25,7 +26,7 @@ class ImageUploadsControllerTest < ActionDispatch::IntegrationTest
 
     Rack::Test::UploadedFile.new(
       StringIO.new(content),
-      "image/jpeg",
+      mime_type,
       original_filename: filename
     )
   end
@@ -147,6 +148,52 @@ class ImageUploadsControllerTest < ActionDispatch::IntegrationTest
     direct_uploads_path.reload
     final_count = ImageCore.where(image_path: direct_uploads_path).count
     assert_equal initial_count + 1, final_count
+  end
+
+  test "should preserve and scan an animated GIF upload" do
+    ImagePath.ensure_direct_uploads_path!
+    gif_content = Base64.strict_decode64(GifTestData::ANIMATED_GIF_BASE64)
+    file = create_test_image(filename: "animated.gif", content: gif_content, mime_type: "image/gif")
+
+    post image_uploads_url, params: { files: [ file ] }
+    assert_response :success
+
+    json_response = JSON.parse(response.body)
+    saved_filename = json_response.fetch("success").first.fetch("filename")
+    saved_path = @upload_dir.join(saved_filename)
+
+    assert_equal gif_content, File.binread(saved_path)
+    assert ImageCore.exists?(image_path: ImagePath.find_by!(name: "direct-uploads"), name: saved_filename)
+  end
+
+  test "should discover an animated GIF in a configured directory" do
+    directory_name = "gif-scan-test"
+    directory = Rails.root.join("public", "memes", directory_name)
+    FileUtils.mkdir_p(directory)
+    File.binwrite(directory.join("discovered.gif"), Base64.strict_decode64(GifTestData::ANIMATED_GIF_BASE64))
+
+    image_path = ImagePath.create!(name: directory_name)
+
+    assert image_path.image_cores.exists?(name: "discovered.gif")
+  ensure
+    image_path&.image_cores&.delete_all
+    image_path&.destroy
+    FileUtils.rm_rf(directory) if directory
+  end
+
+  test "should reject non-image content with a GIF extension" do
+    ImagePath.ensure_direct_uploads_path!
+    fake_gif = Rack::Test::UploadedFile.new(
+      StringIO.new("not a gif"),
+      "image/gif",
+      original_filename: "fake.gif"
+    )
+
+    post image_uploads_url, params: { files: [ fake_gif ] }
+    assert_response :unprocessable_entity
+
+    json_response = JSON.parse(response.body)
+    assert_match(/Invalid image file/, json_response.fetch("errors").first.fetch("error"))
   end
 
   test "should handle mixed valid and invalid files" do

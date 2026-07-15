@@ -133,7 +133,7 @@ class ImagePath < ApplicationRecord
     end
 
     # allowed extensions
-    allowed_extensions = [ ".jpg", ".jpeg", ".png", ".webp" ]
+    allowed_extensions = [ ".jpg", ".jpeg", ".png", ".webp", ".gif" ]
 
     # get images from filesystem
     image_names = Dir.entries(full_path).select do |f|
