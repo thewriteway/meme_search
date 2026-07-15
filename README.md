@@ -144,7 +144,7 @@ Features of Meme Search include:
 
 11. **Drag-and-Drop Upload**
 
-   Upload memes directly through the web interface with drag-and-drop and clipboard paste support. Files are stored in the `direct-uploads` directory (configurable via Docker volume mount) and automatically scanned for indexing. Supports JPG, PNG, and WEBP formats with bulk upload (up to 50 files), real-time progress tracking, and automatic duplicate filename handling.
+   Upload memes directly through the web interface with drag-and-drop and clipboard paste support. Files are stored in the `direct-uploads` directory (configurable via Docker volume mount) and automatically scanned for indexing. Supports JPG, PNG, WEBP, and GIF formats with bulk upload (up to 50 files), real-time progress tracking, and automatic duplicate filename handling. Animated GIFs remain animated when displayed; descriptions and search indexing use the first frame.
 
 ### Requirements
 

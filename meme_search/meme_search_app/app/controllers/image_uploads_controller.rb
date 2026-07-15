@@ -3,7 +3,7 @@ class ImageUploadsController < ApplicationController
   MAX_FILE_SIZE = 10.megabytes
 
   # Allowed file extensions
-  ALLOWED_EXTENSIONS = %w[.jpg .jpeg .png .webp].freeze
+  ALLOWED_EXTENSIONS = %w[.jpg .jpeg .png .webp .gif].freeze
 
   def new
     # Render the upload form
