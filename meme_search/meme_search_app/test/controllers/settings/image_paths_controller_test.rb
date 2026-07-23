@@ -64,6 +64,28 @@ module Settings
       assert_equal "Invalid directory path!", flash[:alert]
     end
 
+    test "should reject paths that escape the meme library" do
+      assert_no_difference("ImagePath.count") do
+        post settings_image_paths_url, params: {
+          image_path: { name: "../" }
+        }
+      end
+
+      assert_response :unprocessable_entity
+      assert_equal "Invalid directory path!", flash[:alert]
+    end
+
+    test "should reject absolute directory paths" do
+      assert_no_difference("ImagePath.count") do
+        post settings_image_paths_url, params: {
+          image_path: { name: Rails.root.to_s }
+        }
+      end
+
+      assert_response :unprocessable_entity
+      assert_equal "Invalid directory path!", flash[:alert]
+    end
+
     test "should not create duplicate image_path" do
       # @image_path.name is "example_memes_1" from fixtures (already in DB)
       # The directory also exists on the filesystem
@@ -204,8 +226,8 @@ module Settings
             original_file_method.call(path)
           end
         } do
-          File.stub :join, ->(dir, file) {
-            original_join_method.call(dir, file)
+          File.stub :join, ->(*parts) {
+            original_join_method.call(*parts)
           } do
             post rescan_settings_image_path_url(image_path)
           end
@@ -342,8 +364,8 @@ module Settings
             original_file_method.call(path)
           end
         } do
-          File.stub :join, ->(dir, file) {
-            original_join_method.call(dir, file)
+          File.stub :join, ->(*parts) {
+            original_join_method.call(*parts)
           } do
             post rescan_settings_image_path_url(image_path)
           end

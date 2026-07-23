@@ -5,6 +5,12 @@ on:
   pull_request:
     branches: ["main", "develop"]
     paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "playwright.config.ts"
+      - "playwright/**"
+      - "playwright-docker/**"
       - "meme_search/meme_search_app/**"
       - ".github/workflows/pro-app-test.yml"
       - "README.md"
@@ -14,6 +20,12 @@ on:
   push:
     branches: ["main", "develop"]
     paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "playwright.config.ts"
+      - "playwright/**"
+      - "playwright-docker/**"
       - "meme_search/meme_search_app/**"
       - ".github/workflows/pro-app-test.yml"
       - "README.md"
@@ -30,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Validate Discord link in README.md
         run: bash scripts/validate_discord_link.sh
@@ -40,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -62,7 +74,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -83,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -119,7 +131,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y curl libjemalloc2 libvips postgresql-client
 
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -179,7 +191,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -189,7 +201,7 @@ jobs:
           working-directory: ./meme_search/meme_search_app
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -201,9 +213,15 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci
 
+      - name: Audit Node.js dependencies
+        run: npm audit --audit-level=high
+
+      - name: Type-check Playwright tests
+        run: npx tsc --noEmit
+
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}

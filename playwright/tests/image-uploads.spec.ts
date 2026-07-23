@@ -20,6 +20,7 @@ test.describe('Image Uploads', () => {
   const testInvalidPath = path.join(__dirname, '../fixtures/test-file.txt');
   const directUploadsPath = path.join(__dirname, '../../meme_search/meme_search_app/public/memes/direct-uploads');
   const jpegBase64 = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==';
+  const gifBase64 = 'R0lGODlhBAAEAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQICgAAACwAAAAABAAEAAAICQABCBxIsCCAgAAh+QQICgAAACwAAAAABAAEAIEAAP8AAAAAAAAAAAAICQABCBxIsCCAgAA7';
 
   // Setup test fixtures
   test.beforeAll(async () => {
@@ -168,17 +169,30 @@ test.describe('Image Uploads', () => {
     expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(true);
   });
 
-  test('should show an error for unsupported pasted image formats', async ({ page }) => {
+  test('should upload and serve an animated GIF unchanged', async ({ page }) => {
     await imageUploadsPage.goto();
 
-    await imageUploadsPage.pasteFiles([
-      { base64: Buffer.from('gif bytes').toString('base64'), filename: 'animated.gif', mimeType: 'image/gif' },
-    ]);
+    await imageUploadsPage.pasteImage(gifBase64, 'image.gif', 'image/gif');
     await page.waitForTimeout(500);
 
-    expect(await imageUploadsPage.getPreviewCount()).toBe(0);
-    expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(true);
-    await expect(page.getByText('Pasted image format is not supported. Use JPG, PNG, or WEBP.')).toBeVisible();
+    expect(await imageUploadsPage.getPreviewCount()).toBe(1);
+    expect(await imageUploadsPage.isUploadButtonDisabled()).toBe(false);
+    const [uploadedFilename] = await imageUploadsPage.getPreviewFilenames();
+    expect(uploadedFilename).toMatch(/^clipboard-.*-1\.gif$/);
+
+    await imageUploadsPage.clickUpload();
+    await expect.poll(() => imageUploadsPage.hasSuccessMessage()).toBe(true);
+
+    await page.goto('/');
+    const gifImage = page.locator(`img[alt="${uploadedFilename}"]`).first();
+    await expect(gifImage).toBeVisible();
+
+    const gifUrl = await gifImage.getAttribute('src');
+    expect(gifUrl).toBeTruthy();
+    const response = await page.request.get(gifUrl!);
+    expect(response.ok()).toBe(true);
+    expect(response.headers()['content-type']).toContain('image/gif');
+    expect(Buffer.from(await response.body()).toString('base64')).toBe(gifBase64);
   });
 
   test('should upload a pasted clipboard image', async ({ page }) => {

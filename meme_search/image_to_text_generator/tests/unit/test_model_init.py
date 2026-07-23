@@ -70,6 +70,25 @@ def test_load_rgb_image_flattens_rgb_png_transparency_on_white(tmp_path):
     assert image.getpixel((0, 0)) == (255, 255, 255)
 
 
+def test_load_rgb_image_uses_first_gif_frame(tmp_path):
+    image_path = tmp_path / "animated.gif"
+    first_frame = Image.new("RGB", (2, 2), (255, 0, 0))
+    second_frame = Image.new("RGB", (2, 2), (0, 0, 255))
+    first_frame.save(
+        image_path,
+        format="GIF",
+        save_all=True,
+        append_images=[second_frame],
+        duration=[100, 100],
+        loop=0,
+    )
+
+    image = load_rgb_image(image_path)
+
+    assert image.mode == "RGB"
+    assert image.getpixel((0, 0)) == (255, 0, 0)
+
+
 class TestTestImageToText:
     """Test suite for TestImageToText model (test/mock model)"""
 

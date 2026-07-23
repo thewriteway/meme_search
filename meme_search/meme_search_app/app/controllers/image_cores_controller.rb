@@ -43,13 +43,13 @@ class ImageCoresController < ApplicationController
     attempt = verified_callback_attempt
     return head :unauthorized unless attempt
 
-    description = callback_data[:description]
+    description = ImageCore.normalize_description(callback_data[:description])
 
     if attempt.succeed_with_description!(description)
       image_core = attempt.image_core.reload
       div_id = "description-image-core-id-#{image_core.id}"
       # update view with newly generated description
-      ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: description }
+      ActionCable.server.broadcast "image_description_channel", { div_id: div_id, description: image_core.description }
 
       # re-compute embeddings
       image_core.refresh_description_embeddings
@@ -365,12 +365,15 @@ class ImageCoresController < ApplicationController
 
   # DELETE /image_cores/1 or /image_cores/1.json
   def destroy
+    @image_core.delete_source_file!
     @image_core.destroy!
 
     respond_to do |format|
-      flash[:notice] = "Meme succesfully deleted!"
+      flash[:notice] = "Meme successfully deleted from the library and disk."
       format.html { redirect_to image_cores_path, status: :see_other }
     end
+  rescue ImageCore::FileDeletionError => e
+    redirect_to @image_core, alert: e.message, status: :see_other
   end
 
   private

@@ -36,14 +36,14 @@
       </label>
 
       <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-        JPG, PNG, WEBP up to 10MB
+        JPG, PNG, WEBP, GIF up to 10MB
       </p>
 
       <input
         id="file-input"
         type="file"
         multiple
-        accept="image/jpeg,image/jpg,image/png,image/webp"
+        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
         data-file-upload-target="fileInput"
         data-action="change->file-upload#handleFileSelect"
         class="hidden"
@@ -91,7 +91,8 @@
       <li>Default location: ./meme_search/direct-uploads/ (on your host machine)</li>
       <li>After uploading, find your images at the path configured in your docker-compose volume mount</li>
       <li>Images are automatically scanned and added to your collection (descriptions generated manually)</li>
-      <li>Supported formats: JPG, PNG, WEBP (max 10MB per file)</li>
+      <li>Supported formats: JPG, PNG, WEBP, GIF (max 10MB per file)</li>
+      <li>Animated GIFs remain animated in the app; descriptions and search indexing use the first frame.</li>
     </ul>
   </div>
 </div>

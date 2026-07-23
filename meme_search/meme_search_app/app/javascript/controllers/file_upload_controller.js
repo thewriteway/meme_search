@@ -65,7 +65,7 @@ export default class extends Controller {
     const pastedFiles = clipboardItems
       .filter((item) => item.kind === "file")
       .map((item) => item.getAsFile())
-      .filter((file) => file && file.type.match(/^image\/(jpeg|jpg|png|webp)$/))
+      .filter((file) => file && file.type.match(/^image\/(jpeg|jpg|png|webp|gif)$/))
       .map((file, index) => this.withClipboardFilename(file, index));
 
     if (pastedFiles.length === 0) {
@@ -73,7 +73,7 @@ export default class extends Controller {
 
       if (pastedImageItems.length > 0) {
         event.preventDefault();
-        this.showError("Pasted image format is not supported. Use JPG, PNG, or WEBP.");
+        this.showError("Pasted image format is not supported. Use JPG, PNG, WEBP, or GIF.");
       }
 
       return;
@@ -84,7 +84,7 @@ export default class extends Controller {
   }
 
   withClipboardFilename(file, index) {
-    if (file.name && !file.name.match(/^image\.(png|jpe?g|webp)$/i)) {
+    if (file.name && !file.name.match(/^image\.(png|jpe?g|webp|gif)$/i)) {
       return file;
     }
 
@@ -93,6 +93,7 @@ export default class extends Controller {
       "image/jpg": "jpg",
       "image/png": "png",
       "image/webp": "webp",
+      "image/gif": "gif",
     };
     const extension = extensionsByType[file.type] || "png";
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -107,11 +108,11 @@ export default class extends Controller {
   addFiles(newFiles) {
     // Filter for images only
     const imageFiles = newFiles.filter((file) =>
-      file.type.match(/^image\/(jpeg|jpg|png|webp)$/)
+      file.type.match(/^image\/(jpeg|jpg|png|webp|gif)$/)
     );
 
     if (imageFiles.length === 0) {
-      this.showError("Please select valid image files (JPG, PNG, WEBP)");
+      this.showError("Please select valid image files (JPG, PNG, WEBP, GIF)");
       return;
     }
 

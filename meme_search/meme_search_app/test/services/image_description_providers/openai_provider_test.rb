@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "fileutils"
+require_relative "gif_test_data"
 
 class ImageDescriptionProviders::OpenaiProviderTest < ActiveSupport::TestCase
   def setup
@@ -58,6 +59,46 @@ class ImageDescriptionProviders::OpenaiProviderTest < ActiveSupport::TestCase
     assert_equal description, @image_core.reload.description
     assert_equal "done", @image_core.status
     assert_equal "succeeded", attempt.reload.status
+  end
+
+  test "sends only the first GIF frame as a static PNG" do
+    original_path = @image_dir.join(@image_core.name)
+    original_path.delete
+    @image_core.update!(name: "animated.gif")
+    gif_content = Base64.strict_decode64(GifTestData::ANIMATED_GIF_BASE64)
+    gif_path = @image_dir.join(@image_core.name)
+    File.binwrite(gif_path, gif_content)
+    submitted_data_uri = nil
+
+    with_openai_env do
+      stub_request(:post, "http://openai.test/v1/chat/completions")
+        .with do |request|
+          submitted_data_uri = JSON.parse(request.body)
+            .dig("messages", 0, "content", 1, "image_url", "url")
+          true
+        end
+        .to_return(
+          status: 200,
+          body: { choices: [ { message: { content: "The first frame is red." } } ] }.to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      @image_core.stub(:refresh_description_embeddings, true) do
+        ActionCable.server.stub(:broadcast, true) do
+          result = ImageDescriptionProviders::OpenaiProvider.new.generate(@image_core)
+          assert result.success?
+        end
+      end
+    end
+
+    assert submitted_data_uri.start_with?("data:image/png;base64,")
+    png_content = Base64.strict_decode64(submitted_data_uri.delete_prefix("data:image/png;base64,"))
+    assert_equal "\x89PNG\r\n\x1A\n".b, png_content.first(8)
+
+    first_frame = Vips::Image.new_from_buffer(png_content, "")
+    red, _green, blue = first_frame.getpoint(0, 0)
+    assert_operator red, :>, blue
+    assert_equal gif_content, File.binread(gif_path)
   end
 
   private

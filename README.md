@@ -11,7 +11,19 @@ By default, processing from image-to-text extraction, to vector embedding, to se
   alt="meme-search-2.0-demo">
   </p>
   
-This repository contains code, a walkthrough notebook, and apps for indexing, searching, and easily retrieving your memes based on semantic search of their content and text.
+This repository contains the services and web app for indexing, searching, and retrieving your memes with semantic and keyword search.
+
+## Quick start
+
+```sh
+git clone https://github.com/neonwatty/meme-search.git
+cd meme-search
+docker compose up
+```
+
+Open <http://localhost:3000>, then drag, drop, or paste images on the upload page. The first local description generation downloads the selected model, so it takes longer than later generations.
+
+The web UI binds to `127.0.0.1` by default because Meme Search does not currently include authentication. To access it from another device on a trusted network, copy `.env.example` to `.env` and set `APP_BIND_ADDRESS=0.0.0.0`. Do not expose an unauthenticated instance directly to the internet; use an authenticated reverse proxy or VPN.
 
 A table of contents for the remainder of this README:
 
@@ -22,7 +34,7 @@ A table of contents for the remainder of this README:
   - [Installation instructions](#installation-instructions)
   - [Time to first generation / downloading models](#time-to-first-generation--downloading-models)
   - [Index your memes](#index-your-memes)
-  - [Custom app port](#custom-app-port)
+  - [Custom bind address and app port](#custom-bind-address-and-app-port)
   - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests)
 - [Discord server](#discord-server)
@@ -132,7 +144,7 @@ Features of Meme Search include:
 
 11. **Drag-and-Drop Upload**
 
-   Upload memes directly through the web interface with drag-and-drop and clipboard paste support. Files are stored in the `direct-uploads` directory (configurable via Docker volume mount) and automatically scanned for indexing. Supports JPG, PNG, and WEBP formats with bulk upload (up to 50 files), real-time progress tracking, and automatic duplicate filename handling.
+   Upload memes directly through the web interface with drag-and-drop and clipboard paste support. Files are stored in the `direct-uploads` directory (configurable via Docker volume mount) and automatically scanned for indexing. Supports JPG, PNG, WEBP, and GIF formats with bulk upload (up to 50 files), real-time progress tracking, and automatic duplicate filename handling. Animated GIFs remain animated when displayed; descriptions and search indexing use the first frame.
 
 ### Requirements
 
@@ -150,13 +162,13 @@ We recommend using [mise](https://mise.jdx.dev/) for managing Ruby, Python, and 
 
 ### Installation instructions
 
-To start up the app pull this repository and start the server cluster with docker-compose
+From the repository root, start the server cluster with Docker Compose:
 
 ```sh
 docker compose up
 ```
 
-This pulls and starts containers for the app, database, Solid Queue job worker, and local auto description generator. The app itself will run on port `3000` and is available at
+This pulls and starts containers for the app, database, Solid Queue job worker, and local auto description generator. The app runs on port `3000` and is available locally at:
 
 ```sh
 http://localhost:3000
@@ -216,7 +228,9 @@ Meme Search supports two providers for automatic meme descriptions:
 - `IMAGE_DESCRIPTION_PROVIDER=local` uses the bundled Python `image_to_text_generator` service. This is the default and keeps description generation local.
 - `IMAGE_DESCRIPTION_PROVIDER=openai` calls an OpenAI-compatible `/chat/completions` vision API directly from Rails. In this mode the Python generator service is not required.
 
-OpenAI-compatible descriptions are normalized to the app's description length limit before saving. Bulk generation queues durable Solid Queue background jobs for external providers so the web request does not wait on one API request per image.
+Descriptions from every provider are normalized to the app's description length limit before saving. Bulk generation queues durable Solid Queue background jobs for external providers so the web request does not wait on one API request per image.
+
+When an external provider is selected, images chosen for description generation are sent to the configured API endpoint. Embeddings, metadata, and search remain local.
 
 For OpenAI-compatible mode, set these environment variables in your `.env` file:
 
@@ -284,6 +298,8 @@ volumes:
 ...
 ```
 
+Read-only mounts can be indexed and searched, but the Delete action in the web UI cannot remove their source files. The UI reports a clear error and keeps the database record when the mount is not writable.
+
 Now restart the app, and register the `new_memes` via the UX by traversing to the `settings -> paths -> create new` as illustrated below.  Type in `new_memes` in the field provided and press `enter`.
 
 <img align="center" src="https://github.com/jermwatt/readme_gifs/blob/main/meme-search-add-new-memes.webp" height="225">
@@ -294,21 +310,24 @@ Once registered in the app, your memes are ready for indexing / tagging / etc.,!
 
 The image-to-text models used to auto generate descriptions for your memes are all open source, and vary in size.
 
-### Custom app port
+### Custom bind address and app port
 
 Easily customize the app's port to more easily use the it with tools like [Unraid](https://unraid.net/?srsltid=AfmBOorvWvSZbCHKnqdR__AcllotnsLR6did_FhAaNfUowqqU2IprD1v) or [Portainer](https://www.portainer.io/), or because you already have services running on the default `meme_search` app port `3000`.
 
-To customize the main app port create a `.env` file locally in the root of the directory. In this file you can define the following custom environment variables which define how the app, image to text generator, and database are accessed. These values are:
+To customize the bind address or main app port, copy `.env.example` to `.env` in the repository root and adjust:
 
 ```sh
-APP_PORT= # the port for the app - defaults to 3000
+APP_BIND_ADDRESS=127.0.0.1 # use 0.0.0.0 only on a trusted network
+APP_PORT=3000
 ```
 
 This value is automatically detected and loaded into each service via the Compose files. The Postgres service is only exposed on Docker's internal network, so app containers always talk to it at `meme-search-db:5432`.
 
 ### Building the app locally with Docker
 
-**Docker images are built manually only** - there are no automated CI builds on releases or tags.
+Docker images are built manually before a release because multi-platform model builds are resource intensive. The release workflow verifies both `latest` images carry the exact release commit revision before it creates versioned tags, preventing a Git tag from pointing at images built from different source.
+
+Maintainers should follow the [`RELEASING.md`](RELEASING.md) checklist.
 
 To build the app - including all services defined in the `docker-compose.yml` file - locally run the local compose file at your terminal as
 
@@ -406,9 +425,9 @@ Meme Search is under active development! See the `CHANGELOG.md` in this repo for
 
 Feature requests and contributions are welcome!
 
-See [the discussion section of this repository](https://github.com/neonwatty/meme_search/discussions) for suggested enhancements to contribute to / weight in on!
+See [the discussion section of this repository](https://github.com/neonwatty/meme-search/discussions) for suggested enhancements to contribute to or weigh in on.
 
-Please see `CONTRIBUTING.md` for some boilerplate ground rules for contributing.
+Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, testing, and contribution guidance. Security-sensitive reports should follow [`SECURITY.md`](SECURITY.md) instead of being filed publicly.
 
 Below is a nice diagram of the repo [generated using gitdiagram](https://github.com/ahmedkhaleel2004/gitdiagram), laying out its main components and interactions.
 

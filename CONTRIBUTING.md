@@ -1,81 +1,74 @@
 # Contributing to Meme Search
 
-Welcome to Meme Search!  We're stoked that you're interested in contributing. 
+Thanks for helping improve Meme Search. Bug reports, documentation fixes, tests, and focused feature pull requests are welcome.
 
-Before you get started, please take a moment to read through the guidelines below.
+By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security-sensitive findings privately using the process in [SECURITY.md](SECURITY.md).
 
+## Before opening an issue
 
-# How Can I Contribute?
-## Reporting Bugs
-If you encounter a bug or unexpected behavior in Meme Search, please help us by creating an issue in our GitHub repository. Be sure to include as much detail as possible to help us reproduce the issue.
+- Search existing [issues](https://github.com/neonwatty/meme-search/issues) and [discussions](https://github.com/neonwatty/meme-search/discussions).
+- Use the bug report form for reproducible defects and include the Meme Search version, host platform, Docker/Compose version, relevant logs, and provider/model.
+- Remove API keys, private paths, image contents, and other sensitive information from logs.
+- Use Discussions for support questions and early feature ideas.
 
-## Suggesting Enhancements
-Have an idea to improve Meme Search?  Bring it on!  You can submit your ideas by creating an issue in our GitHub repository and using the `enhancement` label.
+## Development setup
 
-## Contributing Code
-If you're ready to contribute code to Meme Search, follow these steps:
-
-Fork the Repository: Start by forking the repository to your GitHub account.
-
-Clone the Repository: Clone the forked repository to your local machine.
+Fork and clone the repository, then create a focused branch:
 
 ```sh
-git clone https://github.com/neonwatty/meme_search
+git clone https://github.com/YOUR_USERNAME/meme-search.git
+cd meme-search
+git checkout -b fix/short-description
 ```
 
-Create a Branch: Create a new branch for your feature or fix.
+The project uses Ruby 3.4.2, Python 3.12, Node.js 20, and PostgreSQL 17 with pgvector. [mise](https://mise.jdx.dev/) can install the language runtimes:
 
 ```sh
-git checkout -b feature-branch
+mise install
 ```
 
-Make Changes: Make your changes and ensure they follow the coding style of the project.
+PostgreSQL normally runs through Docker. See [CLAUDE.md](CLAUDE.md) for the current service-specific development commands while the neutral development guide is expanded.
 
-Test Your Changes: Test your changes to ensure they work as expected.
+## Tests
 
-**Run Docker E2E Tests**: If your changes affect Docker, cross-service communication, or the image processing pipeline, you MUST run Docker E2E tests locally:
+Run the repository's CI-equivalent checks:
 
 ```sh
+bash scripts/run_all_ci_tests.sh
+```
+
+For a focused Rails change:
+
+```sh
+cd meme_search/meme_search_app
+bundle exec rails test
+bin/rubocop
+bin/brakeman -w3 --no-pager
+```
+
+For a focused image-to-text service change:
+
+```sh
+cd meme_search/image_to_text_generator
+python -m pytest tests/unit tests/test_app.py
+ruff check app tests
+```
+
+Changes to Docker, persistence, cross-service communication, or the image-processing pipeline must also run the Docker E2E suite:
+
+```sh
+npm ci
 npm run test:e2e:docker
 ```
 
-These tests validate the complete microservices stack (Rails + Python + PostgreSQL) and DO NOT run in CI. Local validation is required before submitting PRs.
+The Docker E2E suite is resource intensive and does not currently run in GitHub Actions, so include its result in the pull request description.
 
-See `playwright-docker/README.md` for details on what these tests cover.
+## Pull requests
 
-**Run CI Locally (Optional)**: You can validate your changes match GitHub Actions CI before pushing using [act](https://github.com/nektos/act):
+- Keep the change focused and explain the user-visible behavior.
+- Add or update tests for behavior changes and bug fixes.
+- Update README, configuration examples, and release notes when the user workflow changes.
+- Avoid drive-by formatting or unrelated dependency changes.
+- Complete the pull request checklist and link the issue being resolved.
 
-```sh
-# Install act (macOS)
-brew install act
-
-# Run all CI jobs
-act --container-architecture linux/amd64 -P ubuntu-latest=catthehacker/ubuntu:act-latest
-```
-
-Commit Your Changes: Commit your changes with a clear and descriptive commit message.
-
-```sh
-git commit -m "Add feature or fix for XYZ"
-```
-
-Push Your Changes: Push your branch to your forked repository.
-
-```sh
-git push origin feature-branch
-```
-
-Create a Pull Request: Create a pull request from your forked repository to the main repository. Be sure to provide a detailed description of your changes.
-
-Review Process: The maintainers will review your pull request and may request changes or provide feedback.
-
-Merge: Once approved, your pull request will be merged into the main repository. Congratulations!
-
-# Code of Conduct
-
-Remember to always be excellent to each other.
-
-# Questions?
-If you have any questions that aren't addressed in this guide, feel free to reach out to us by creating an issue in our GitHub repository.
-
-Thank you for contributing to Meme Search!
+A maintainer will review the pull request and may ask for changes. Please keep the branch available until the review is complete.

@@ -32,8 +32,7 @@ class ImagePath < ApplicationRecord
 
     if direct_uploads_path.new_record?
       # Create the directory if it doesn't exist
-      base_dir = Dir.getwd
-      full_path = File.join(base_dir, "public", "memes", "direct-uploads")
+      full_path = Rails.root.join("public", "memes", "direct-uploads")
       FileUtils.mkdir_p(full_path) unless File.directory?(full_path)
 
       # Save with manual scan only (no auto-scan)
@@ -65,6 +64,16 @@ class ImagePath < ApplicationRecord
     return "Manual only" unless auto_scan_enabled?
     return "Due now" if due_for_scan?
     distance_of_time_in_words(Time.current, next_scan_time, include_seconds: false)
+  end
+
+  def directory_path
+    relative_path = Pathname.new(name.to_s).cleanpath
+    segments = relative_path.each_filename.to_a
+
+    return if relative_path.absolute?
+    return if segments.empty? || segments.any? { |segment| segment == ".." }
+
+    Rails.root.join("public", "memes", *segments).cleanpath
   end
 
   def scan_and_update!
@@ -105,10 +114,8 @@ class ImagePath < ApplicationRecord
     def valid_dir
       return if self.name.blank?
 
-      base_dir = Dir.getwd
-      full_path = base_dir + "/public/memes/" + self.name
-      puts full_path
-      unless File.directory?(full_path)
+      full_path = directory_path
+      unless full_path&.directory?
         self.errors.add :name, message: "The input path - #{self.name} - is not a valid subdirectory in /public/memes"
       end
     end
@@ -117,17 +124,16 @@ class ImagePath < ApplicationRecord
     end
 
   def list_files_in_directory
-    base_dir = Dir.getwd
-    full_path = base_dir + "/public/memes/" + self.name
+    full_path = directory_path
 
     # Return early if directory doesn't exist
-    unless File.directory?(full_path)
-      puts "Directory does not exist."
+    unless full_path&.directory?
+      Rails.logger.warn "[Scan] Refusing invalid or missing meme directory: #{name.inspect}"
       return { added: 0, removed: 0 }
     end
 
     # allowed extensions
-    allowed_extensions = [ ".jpg", ".jpeg", ".png", ".webp" ]
+    allowed_extensions = [ ".jpg", ".jpeg", ".png", ".webp", ".gif" ]
 
     # get images from filesystem
     image_names = Dir.entries(full_path).select do |f|
