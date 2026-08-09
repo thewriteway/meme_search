@@ -228,6 +228,67 @@ h3 {
   color: var(--text);
 }
 
+.api-launch {
+  margin-top: 48px;
+  padding: 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 480px);
+  gap: 36px;
+  align-items: start;
+  border: 1px solid #c4b5fd;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--surface), var(--accent-light));
+}
+
+.api-launch h2 {
+  max-width: 760px;
+}
+
+.api-launch p {
+  max-width: 760px;
+}
+
+.api-launch-copy .actions {
+  max-width: 520px;
+}
+
+.api-launch .button {
+  flex: 1 1 200px;
+}
+
+.api-launch .security-note {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.api-demo {
+  min-width: 0;
+  margin: 0;
+}
+
+.api-demo video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #111827;
+  box-shadow: 0 16px 36px rgb(31 41 55 / 14%);
+}
+
+.api-demo figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.api-demo figcaption a {
+  font-weight: 650;
+}
+
 .section-heading {
   max-width: 760px;
   min-width: 0;
@@ -328,6 +389,7 @@ h3 {
 }
 
 .model-name {
+  margin: 0;
   font-weight: 700;
   color: var(--text);
 }
@@ -422,7 +484,8 @@ pre {
 
   .hero,
   .split,
-  .install {
+  .install,
+  .api-launch {
     grid-template-columns: 1fr;
   }
 

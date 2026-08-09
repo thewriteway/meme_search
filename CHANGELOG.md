@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.2] - 2026-08-04
+
+Dependency and CI maintenance:
+
+- Updated the image-to-text runtime floor to PyTorch 2.13, bitsandbytes 0.50,
+  and psutil 7.2.2, with the image-to-text test suite passing on the combined
+  dependency set.
+- Updated Ruby OpenSSL to 4.0.2, SimpleCov to 1.0.3, the frontend test
+  dependencies, and GitHub Actions Python setup to v7.
+- Fixed the image-to-text Ruff workflow so its component-specific configuration
+  and source path are honored instead of linting unrelated repository files.
+
+This patch does not change the database schema or Search API contract. See the
+[v2.3.2 release and upgrade notes](docs/releases/v2.3.2.md).
+
+## [2.3.1] - 2026-07-30
+
+Docker startup reliability:
+
+- Fixed a transient fresh-install race when the web and jobs containers run
+  `db:prepare` concurrently while PostgreSQL is enabling pgvector.
+- The Rails server and job-worker entrypoints now retry database preparation up
+  to five times with a two-second delay. Persistent preparation failures still
+  stop the container with a nonzero exit instead of hiding the error.
+- Added deterministic entrypoint coverage for transient recovery, retry
+  exhaustion, both application processes, and commands that do not prepare the
+  database.
+
+This patch does not change the database schema or Search API contract. See the
+[v2.3.1 release and upgrade notes](docs/releases/v2.3.1.md).
+
+## [2.3.0] - 2026-07-30
+
+Search beyond the web app:
+
+- **Search API v1**: Added a documented, stable, additive, and permanently
+  read-only `/api/v1` contract for keyword and vector search, meme metadata,
+  tags, and authenticated original-media retrieval.
+- **Scoped API tokens**: Added hashed, expiring, individually revocable tokens
+  with separate `search:read` and `media:read` permissions.
+- **Local CLI**: Added a dependency-free Python client for searching collections,
+  producing human-readable or JSON results, and safely fetching media.
+- **Chromium popup**: Added an experimental unpacked browser extension for
+  loopback search, explicit copy, and download actions. It is not published to
+  an extension store.
+- **Integration readiness**: Added an OpenAPI 3.1 contract, shared
+  client-conformance fixtures, security and migration coverage, and an optional
+  UI-independent relevance evaluator.
+- **Documentation and demos**: Published the
+  [Search API guide](docs/search-api.md), a
+  [browser-playable app-and-CLI demo](https://neonwatty.github.io/meme-search/#integrations),
+  and [issue #197](https://github.com/neonwatty/meme-search/issues/197) for
+  coordinating community-built integrations.
+
+Security and upgrade notes:
+
+- Official support remains loopback-only. API bearer tokens protect `/api/v1`;
+  they do not authenticate the web UI or settings, and direct public exposure
+  remains unsupported.
+- Clients should use one least-privilege token per integration and must not
+  connect directly to PostgreSQL, internal Docker services, or the meme
+  filesystem.
+- The release adds the `api_tokens` table. Back up the database before
+  upgrading and follow the
+  [v2.3.0 release and upgrade notes](https://github.com/neonwatty/meme-search/releases/tag/v2.3.0).
+
 ## [2.0.0] - 2025-11-03
 
 Testing infrastructure and quality improvements:

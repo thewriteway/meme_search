@@ -6,6 +6,17 @@ Use AI to index your memes by their content and text, making them easily retriev
 
 By default, processing from image-to-text extraction, to vector embedding, to search is performed locally. You can also use an OpenAI-compatible vision API for description generation while keeping embeddings and search local.
 
+Visit the [Meme Search project site](https://neonwatty.github.io/meme-search/) for a visual feature overview, or continue below for installation and configuration details.
+
+> **Search beyond the web app.** Meme Search now includes a documented,
+> token-authenticated [Search API v1](docs/search-api.md), a
+> [dependency-free local CLI](integrations/cli/README.md), and an
+> [experimental unpacked Chromium popup](integrations/browser-extension/README.md).
+> The API is read-only and officially supported on loopback; it also gives
+> community integrations a stable boundary that does not expose your database.
+
+[Watch the 16-second app-and-CLI demo](https://neonwatty.github.io/meme-search/#integrations).
+
   <p align="center">
     <img src="https://github.com/user-attachments/assets/0529764f-a009-4e17-8947-63c7c96075a5"
   alt="meme-search-2.0-demo">
@@ -23,7 +34,13 @@ docker compose up
 
 Open <http://localhost:3000>, then drag, drop, or paste images on the upload page. The first local description generation downloads the selected model, so it takes longer than later generations.
 
-The web UI binds to `127.0.0.1` by default because Meme Search does not currently include authentication. To access it from another device on a trusted network, copy `.env.example` to `.env` and set `APP_BIND_ADDRESS=0.0.0.0`. Do not expose an unauthenticated instance directly to the internet; use an authenticated reverse proxy or VPN.
+The web UI binds to `127.0.0.1` by default because it does not include user
+authentication. Official support is loopback-only for API v1 and the included
+clients. API bearer tokens protect only the versioned integration
+endpoints; they do not protect the web UI or settings. Direct public exposure
+is unsupported. Proxy/VPN operation is advanced and unsupported; its
+authentication, TLS, and network controls are entirely the operator's
+responsibility.
 
 A table of contents for the remainder of this README:
 
@@ -34,6 +51,7 @@ A table of contents for the remainder of this README:
   - [Installation instructions](#installation-instructions)
   - [Time to first generation / downloading models](#time-to-first-generation--downloading-models)
   - [Index your memes](#index-your-memes)
+  - [Search API and local integrations](#search-api-and-local-integrations)
   - [Custom bind address and app port](#custom-bind-address-and-app-port)
   - [Building the app locally with Docker](#building-the-app-locally-with-docker)
   - [Running tests](#running-tests)
@@ -306,6 +324,27 @@ Now restart the app, and register the `new_memes` via the UX by traversing to th
 
 Once registered in the app, your memes are ready for indexing / tagging / etc.,!
 
+### Search API and local integrations
+
+Search, inspect metadata, and fetch authorized media through the stable,
+read-only `/api/v1` contract—without giving clients PostgreSQL credentials,
+Docker-network access, schema knowledge, or filesystem paths.
+
+- Follow the [Search API guide](docs/search-api.md) for scoped-token setup,
+  endpoint examples, the OpenAPI contract, upgrade steps, security boundaries,
+  demos, and troubleshooting.
+- Search and fetch from a terminal with the
+  [dependency-free Python CLI](integrations/cli/README.md).
+- Search from an [experimental unpacked Chromium popup](integrations/browser-extension/README.md).
+- Measure UI-independent search behavior with the optional, non-gating
+  relevance evaluator documented in the API guide.
+- Propose a local client or conversation workflow in
+  [community integration issue #197](https://github.com/neonwatty/meme-search/issues/197).
+
+API v1 is officially supported only on loopback and is permanently read-only.
+Its bearer tokens do not authenticate the web UI or settings, so do not expose
+the app directly to a public network.
+
 ### Model downloads
 
 The image-to-text models used to auto generate descriptions for your memes are all open source, and vary in size.
@@ -317,11 +356,23 @@ Easily customize the app's port to more easily use the it with tools like [Unrai
 To customize the bind address or main app port, copy `.env.example` to `.env` in the repository root and adjust:
 
 ```sh
-APP_BIND_ADDRESS=127.0.0.1 # use 0.0.0.0 only on a trusted network
+APP_BIND_ADDRESS=127.0.0.1
 APP_PORT=3000
 ```
 
 This value is automatically detected and loaded into each service via the Compose files. The Postgres service is only exposed on Docker's internal network, so app containers always talk to it at `meme-search-db:5432`.
+
+Changing `APP_BIND_ADDRESS` away from loopback is advanced and unsupported. A
+trusted LAN is not an authentication boundary, and API tokens do not protect
+the web UI or settings. If an operator chooses to use a private VPN or
+authenticated TLS reverse proxy, that operator owns the full configuration and
+security review. Direct public exposure remains unsupported.
+
+Rails rejects unrecognized `Host` headers to prevent DNS rebinding. Advanced
+reverse proxies must opt an exact hostname into the comma-separated
+`MEME_SEARCH_ALLOWED_HOSTS` setting. Wildcards, URLs, ports, and CIDR ranges are
+rejected. Allowing a host does not authenticate the web UI or make non-loopback
+exposure supported.
 
 ### Building the app locally with Docker
 
@@ -357,7 +408,10 @@ Tests can then be run as
 bash run_tests.sh
 ```
 
-When doing this ensure you have an available Postgres instance running locally on port `5432`.
+When invoking this app-local script directly, ensure PostgreSQL with pgvector
+is available through the Rails database configuration. The root `npm test`
+runner instead provisions an isolated loopback-only test database unless
+`DATABASE_URL` is supplied.
 
 Run linting tests on the `/app` subdirectory as
 
