@@ -6,6 +6,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  IMAGE_NAMESPACE: ghcr.io/${{ github.repository_owner }}
+  COMPAT_IMAGE_NAMESPACE: ghcr.io/neonwatty
 
 jobs:
   build_pro_image_to_text:
@@ -75,7 +77,7 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: |
-            ghcr.io/${{ github.actor }}/image_to_text_generator
+            ${{ env.IMAGE_NAMESPACE }}/image_to_text_generator
           tags: type=ref,event=tag
           flavor: latest=true
 
@@ -98,7 +100,7 @@ jobs:
           context: ./meme_search/image_to_text_generator
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/neonwatty/image_to_text_generator:latest
+          tags: ${{ env.IMAGE_NAMESPACE }}/image_to_text_generator:latest
           labels: ${{ steps.meta.outputs.labels }}
           provenance: mode=max
           sbom: true
@@ -106,6 +108,31 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+
+      - name: Require compatibility publishing credential
+        if: github.repository_owner != 'neonwatty'
+        env:
+          GHCR_COMPAT_TOKEN: ${{ secrets.GHCR_COMPAT_TOKEN }}
+        run: |
+          if [ -z "$GHCR_COMPAT_TOKEN" ]; then
+            echo "GHCR_COMPAT_TOKEN is required after the organization transfer."
+            exit 1
+          fi
+
+      - name: Log in for compatibility publishing
+        if: github.repository_owner != 'neonwatty'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: neonwatty
+          password: ${{ secrets.GHCR_COMPAT_TOKEN }}
+
+      - name: Publish generator compatibility image
+        if: github.repository_owner != 'neonwatty'
+        run: |
+          docker buildx imagetools create \
+            "$IMAGE_NAMESPACE/image_to_text_generator:latest" \
+            --tag "$COMPAT_IMAGE_NAMESPACE/image_to_text_generator:latest"
 
       - name: Calculate build duration
         if: always()

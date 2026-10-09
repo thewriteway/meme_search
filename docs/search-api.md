@@ -20,7 +20,7 @@ exposure supported.
 
 ## See it in action
 
-[Watch the 16-second silent app-and-CLI demo](https://neonwatty.github.io/meme-search/#integrations),
+[Watch the 16-second silent app-and-CLI demo](https://meme-search.neonwatty.com/#integrations),
 or read its [timed transcript and exact commands](demos/search-api-v1-demo.md).
 
 | Web app | Local CLI |
@@ -314,7 +314,7 @@ filesystem, Python-service, or Docker-network access. Do not ask users to make
 the app public merely to connect a platform integration.
 
 Have an idea for a launcher, local bot, mobile shortcut, or conversation
-workflow? Join [community integration issue #197](https://github.com/neonwatty/meme-search/issues/197)
+workflow? Join [community integration issue #197](https://github.com/meme-search/meme-search/issues/197)
 before implementation so its credential, runtime, and maintenance model can be
 reviewed.
 
